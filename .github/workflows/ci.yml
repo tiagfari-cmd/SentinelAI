@@ -76,3 +76,12 @@ jobs:
       - name: Audit JavaScript dependencies
         working-directory: frontend
         run: npm audit --audit-level=high
+
+  container-build:
+    name: Build Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Build services with Docker Compose
+        run: docker compose build

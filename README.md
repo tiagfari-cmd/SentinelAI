@@ -66,10 +66,10 @@ branch `feature/phase-3-database`. A Fase 4 está publicada em
 `feature/phase-4-dashboard`, baseada na Fase 3.
 
 O GitHub Actions executa os testes do backend, verifica build e lint do frontend
-e audita dependências Python e JavaScript em cada push e pull request. A auditoria
-de dependências também corre semanalmente para detetar avisos publicados depois
-de uma alteração ao código. O workflow só tem permissão de leitura e não usa
-segredos nem faz deploy automático.
+constrói as imagens Docker e audita dependências Python e JavaScript em cada push
+e pull request. A auditoria de dependências também corre semanalmente para detetar
+avisos publicados depois de uma alteração ao código. O workflow só tem permissão
+de leitura e não usa segredos nem faz deploy automático.
 
 Na Fase 2, acrescentámos endpoints HTTP e validação de pedidos com
 Pydantic. Na Fase 3, os eventos e alertas passaram a ser guardados em tabelas;
@@ -128,12 +128,15 @@ migrations/               # histórico de alterações às tabelas
 .env.example              # exemplo de configuração sem credenciais reais
 frontend/                 # interface React, TypeScript, Tailwind e Recharts
 .github/workflows/        # testes e verificações em cada push/PR
+Dockerfile                # imagem da API Python
+docker-compose.yml        # API, dashboard e volume SQLite local
 ```
 
 ## Requisitos
 
 - Python 3.11 ou mais recente.
 - Node.js 24 ou mais recente para o frontend.
+- Docker Desktop com Docker Compose para executar os serviços em containers.
 - Para a Fase 1 não são necessárias dependências externas.
 - Para a API e base de dados, instalar as dependências listadas em `requirements.txt`.
 
@@ -279,6 +282,32 @@ Para criar a versão estática e verificar os tipos TypeScript:
 npm run build
 ```
 
+### Executar com Docker Compose
+
+Docker Compose inicia a API e o dashboard sem ser necessário instalar as
+dependências Python e Node diretamente no computador. No Windows, instala e
+inicia o Docker Desktop primeiro. Depois, a partir da pasta principal do repo,
+cria `.env` a partir do exemplo apenas se ainda não existir:
+
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+Para usar Gemini, edita `.env` e define `ASSISTANT_PROVIDER=gemini` e
+`GEMINI_API_KEY` com a chave no teu computador. Não partilhes nem commits esse
+ficheiro. De seguida, constrói e inicia os serviços:
+
+```powershell
+docker compose up --build
+```
+
+Abre `http://localhost:8080` para o dashboard e `http://localhost:8000/docs`
+para a documentação da API. O dashboard encaminha os pedidos da API pelo
+próprio servidor web; os serviços só ficam acessíveis a partir do computador
+local. A base de dados SQLite fica num volume Docker e as migrações são
+aplicadas no arranque da API. `docker compose down` pára os serviços sem apagar
+os dados; `docker compose down -v` também apaga o volume e todos os dados locais.
+
 O browser só permite chamadas locais à API na origem de desenvolvimento do
 Vite. Para outro domínio, configura `CORS_ALLOWED_ORIGINS` no backend com uma
 lista separada por vírgulas de origens explicitamente permitidas. CORS não é
@@ -330,7 +359,7 @@ termos do provedor e as regras de privacidade aplicáveis.
 
 ## Limitações conhecidas
 
-- A persistência funciona localmente, mas ainda não há configuração de ambiente de produção.
+- O Docker Compose é apenas para execução local; ainda não há configuração de ambiente de produção.
 - A proteção usa um token de operador partilhado; ainda faltam contas individuais,
   limitação de pedidos e monitorização adequadas a uma API pública. As auditorias
   automáticas só detetam vulnerabilidades conhecidas nas dependências.
