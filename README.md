@@ -20,6 +20,54 @@ Concluído na Fase 1:
 
 Ainda não inclui API, base de dados, frontend, Docker ou integração com IA.
 
+## Processo de desenvolvimento
+
+O SentinelAI está a ser construído por marcos pequenos. Cada marco deve ter um
+objetivo claro, documentação, testes e uma forma simples de verificar o
+resultado antes de avançarmos para tecnologias novas. Assim, o projeto cresce
+sem esconder decisões importantes atrás de ferramentas que ainda não são
+necessárias.
+
+Na Fase 1 começámos pelo problema de deteção, sem servidor nem base de dados.
+Usámos apenas a biblioteca padrão do Python para que o programa seja fácil de
+instalar e para manter o foco na validação dos dados e no algoritmo. Os eventos
+de exemplo são fictícios e usam endereços reservados para documentação.
+
+O percurso de um evento é:
+
+```text
+ficheiro JSON → validação → ordenação por IP e hora → janela de 60 segundos
+                                                    ↓
+                                       alerta com evidência observada
+```
+
+Os testes cobrem casos normais e limites: eventos fora de ordem, cinco falhas
+no intervalo, falhas demasiado afastadas, logins bem-sucedidos, IPs distintos,
+dados inválidos e supressão de duplicados. Um teste que falhou durante o
+desenvolvimento ajudou-nos a corrigir a forma de representar exatamente o
+instante dos 60 segundos; a verificação final passou nos 10 testes.
+
+O trabalho está na branch `feature/phase-1-detection`, com um commit local e
+publicado no GitHub. O próximo passo do fluxo é rever esta fase numa pull
+request antes de integrar as alterações na branch principal.
+
+### Decisões técnicas desta fase
+
+- **Python padrão:** não há dependências para instalar nem configurar.
+- **UTC e fuso horário obrigatório:** eventos de fusos diferentes podem ser
+  comparados corretamente; datas ambíguas sem fuso são rejeitadas.
+- **Endereço IP validado:** formatos inválidos não entram na regra.
+- **Ordenação antes da deteção:** a ordem do ficheiro não altera o resultado.
+- **Alerta baseado em evidência:** o resultado descreve falhas observadas e não
+  classifica o evento como ataque confirmado.
+- **IA fica para mais tarde:** a regra de deteção é determinística e continuará
+  separada de qualquer explicação gerada por um modelo.
+
+Quando uma fase terminar, este README deve indicar o que foi implementado, como
+executar e testar, que decisões foram tomadas e que limitações continuam em
+aberto. O histórico de Git regista as alterações; a documentação explica o
+motivo e o funcionamento delas.
+
 ## Estrutura
 
 ```text
