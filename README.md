@@ -121,24 +121,19 @@ Criar um ambiente virtual e instalar as dependências:
 
 ```powershell
 py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-py -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Iniciar o servidor local:
+Iniciar o servidor local usando o Python do ambiente virtual:
 
 ```powershell
-py -m uvicorn backend.app.api:app --reload
+.\.venv\Scripts\python.exe -m uvicorn backend.app.api:app --reload
 ```
 
 Com o servidor em execução, abrir `http://127.0.0.1:8000/docs` para experimentar
-os endpoints interativamente. `Ctrl+C` pára o servidor. Se o PowerShell impedir
-a ativação do ambiente virtual, também é possível executar o Python diretamente:
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m uvicorn backend.app.api:app --reload
-```
+os endpoints interativamente. `Ctrl+C` pára o servidor. Não é necessário ativar
+o ambiente virtual; assim evitamos depender da política de execução de scripts do
+PowerShell. Se optares por ativá-lo, usa `py -m uvicorn ...` depois da ativação.
 
 Também é possível enviar um evento a partir de outro terminal PowerShell:
 
