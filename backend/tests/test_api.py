@@ -52,6 +52,15 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
+    def test_local_frontend_origin_can_call_api(self) -> None:
+        response = self.request(
+            "GET",
+            "/health",
+            headers={"Origin": "http://localhost:5173"},
+        )
+
+        self.assertEqual(response.headers["access-control-allow-origin"], "http://localhost:5173")
+
     def test_events_start_empty(self) -> None:
         response = self.request("GET", "/events")
 

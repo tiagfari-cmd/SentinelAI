@@ -21,9 +21,12 @@ Concluído na Fase 1:
 Concluída na Fase 2: API REST com FastAPI. A API recebe e lista eventos e
 calcula alertas.
 
-Em desenvolvimento na Fase 3: persistência com SQLAlchemy, PostgreSQL e
+Concluída na Fase 3: persistência com SQLAlchemy, PostgreSQL compatível e
 migrações Alembic. SQLite é usado por omissão para simplificar a execução local;
 PostgreSQL pode ser selecionado através de `DATABASE_URL`.
+
+Em desenvolvimento na Fase 4: dashboard React/TypeScript, visualização dos
+eventos da API e assistente de demonstração com respostas mockadas.
 
 ## Processo de desenvolvimento
 
@@ -53,15 +56,16 @@ desenvolvimento ajudou-nos a corrigir a forma de representar exatamente o
 instante dos 60 segundos; a verificação final passou nos 10 testes.
 
 O motor da Fase 1 foi publicado na branch `feature/phase-1-detection`. A API da
-Fase 2 foi publicada na branch `feature/phase-2-rest-api`. A Fase 3 está a ser
-desenvolvida numa branch própria para revisão antes de integrar alterações na
-branch principal.
+Fase 2 foi publicada na branch `feature/phase-2-rest-api`. A Fase 3 está na
+branch `feature/phase-3-database`. A Fase 4 está a ser desenvolvida em
+`feature/phase-4-dashboard`, baseada na Fase 3.
 
 Na Fase 2, acrescentámos quatro endpoints HTTP e validação de pedidos com
-Pydantic. Na Fase 3, os eventos e alertas passam a ser guardados em tabelas;
+Pydantic. Na Fase 3, os eventos e alertas passaram a ser guardados em tabelas;
 uma sessão de base de dados gere as operações de cada pedido, e Alembic aplica
-alterações ao esquema através de migrações versionadas. A regra de deteção
-continua separada da persistência.
+alterações ao esquema através de migrações versionadas. Na Fase 4, o frontend
+consulta a API e apresenta uma amostra fictícia quando a API local não está
+disponível. O assistente também é simulado e não envia dados a nenhum LLM.
 
 ### Decisões técnicas
 
@@ -80,6 +84,8 @@ continua separada da persistência.
   parte normal da evolução da aplicação.
 - **Testes isolados:** cada teste da API usa SQLite em memória e não depende de
   uma instalação local de PostgreSQL.
+- **Chave de LLM só no servidor:** um futuro chatbot deve chamar o provedor a
+  partir do backend; uma chave colocada no JavaScript do browser ficaria visível.
 
 Quando uma fase terminar, este README deve indicar o que foi implementado, como
 executar e testar, que decisões foram tomadas e que limitações continuam em
@@ -108,6 +114,7 @@ requirements.txt          # dependências necessárias para a API
 alembic.ini               # configuração das migrações
 migrations/               # histórico de alterações às tabelas
 .env.example              # exemplo de configuração sem credenciais reais
+frontend/                 # interface React, TypeScript, Tailwind e Recharts
 ```
 
 ## Requisitos
@@ -230,6 +237,35 @@ O algoritmo é determinístico: os mesmos eventos produzem sempre o mesmo
 resultado. A complexidade principal é aproximadamente O(n log n), devido à
 ordenação cronológica.
 
+## Dashboard (Fase 4)
+
+O dashboard está em `frontend/`. Mostra indicadores calculados a partir dos
+eventos e alertas devolvidos pela API, permite pesquisar e filtrar eventos,
+exportar os eventos apresentados para JSON e abrir detalhes de um alerta. Se a
+API não estiver disponível, apresenta uma pequena amostra de dados fictícios e
+identifica-a claramente. O assistente responde apenas com texto de demonstração.
+
+Numa janela PowerShell, inicia a API seguindo as instruções acima. Noutra,
+instala as dependências e inicia o dashboard:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Abre o endereço local indicado pelo Vite (normalmente `http://localhost:5173`).
+Para criar a versão estática e verificar os tipos TypeScript:
+
+```powershell
+npm run build
+```
+
+O browser só permite chamadas locais à API na origem de desenvolvimento do
+Vite. Para outro domínio, configura `CORS_ALLOWED_ORIGINS` no backend com uma
+lista separada por vírgulas de origens explicitamente permitidas. CORS não é
+autenticação nem substitui proteger uma API pública.
+
 ## Limitações conhecidas
 
 - A persistência funciona localmente, mas ainda não há configuração de ambiente de produção.
@@ -238,8 +274,8 @@ ordenação cronológica.
 
 ## Próximos marcos
 
-1. Concluir e rever a Fase 3: PostgreSQL, SQLAlchemy e migrações.
-2. Construir o dashboard React e o chatbot visual com respostas de demonstração.
-3. Acrescentar explicações de IA separadas da deteção determinística.
-4. Reforçar segurança, CI e preparação para demonstração pública.
+1. Concluir e rever o dashboard, ligando-o ao backend hospedado.
+2. Acrescentar explicações de IA separadas da deteção determinística, com uma
+   chave protegida no backend e o modo mock disponível.
+3. Reforçar segurança, CI e preparação para demonstração pública.
 

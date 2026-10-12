@@ -1,6 +1,9 @@
 """Endpoints HTTP da API inicial do SentinelAI."""
 
+import os
+
 from fastapi import Depends, FastAPI, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from .database import get_db
@@ -18,6 +21,19 @@ app = FastAPI(
     title="SentinelAI API",
     description="API educativa para eventos e alertas de autenticação suspeita.",
     version="0.3.0",
+)
+
+allowed_origins = os.getenv("CORS_ALLOWED_ORIGINS")
+if allowed_origins:
+    cors_origins = [origin.strip() for origin in allowed_origins.split(",") if origin.strip()]
+else:
+    cors_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Accept", "Content-Type"],
 )
 
 @app.get("/health")
