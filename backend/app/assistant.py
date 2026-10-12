@@ -5,6 +5,10 @@ import os
 import httpx
 
 
+class GeminiRequestError(ValueError):
+    """A safe, credential-free description of an upstream Gemini error."""
+
+
 def _mock_answer(message: str, event_count: int, alert_count: int) -> str:
     question = message.casefold()
     if "alert" in question or "investig" in question:
@@ -55,7 +59,18 @@ async def answer_question(message: str, event_count: int, alert_count: int) -> t
             headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
             json=payload,
         )
-    response.raise_for_status()
+    if response.is_error:
+        try:
+            error = response.json().get("error", {})
+            status_name = error.get("status", "UNKNOWN")
+            status_code = response.status_code
+        except (ValueError, AttributeError):
+            status_name = "UNKNOWN"
+            status_code = response.status_code
+        raise GeminiRequestError(
+            f"Gemini respondeu HTTP {status_code} ({status_name}). "
+            "Verifica a chave, o modelo e a quota na Google AI Studio."
+        )
     data = response.json()
     try:
         text = data["candidates"][0]["content"]["parts"][0]["text"].strip()

@@ -8,7 +8,10 @@ async function fetchJson<T>(path: string): Promise<T> {
     headers: { Accept: 'application/json' },
     signal: AbortSignal.timeout(5000),
   })
-  if (!response.ok) throw new Error(`API respondeu com HTTP ${response.status}`)
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null) as { detail?: string } | null
+    throw new Error(errorBody?.detail || `API respondeu com HTTP ${response.status}`)
+  }
   return response.json() as Promise<T>
 }
 
@@ -19,7 +22,10 @@ export async function askAssistant(message: string): Promise<{ answer: string; p
     body: JSON.stringify({ message }),
     signal: AbortSignal.timeout(25_000),
   })
-  if (!response.ok) throw new Error(`API respondeu com HTTP ${response.status}`)
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null) as { detail?: string } | null
+    throw new Error(errorBody?.detail || `API respondeu com HTTP ${response.status}`)
+  }
   return response.json() as Promise<{ answer: string; provider: 'mock' | 'gemini' }>
 }
 

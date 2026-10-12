@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Bot, MessageCircle, Send, ShieldAlert, Sparkles, X } from 'lucide-react'
 import { askAssistant } from './api'
 
-type Message = { from: 'assistant' | 'user'; text: string; provider?: 'mock' | 'gemini' | 'local' }
+type Message = { from: 'assistant' | 'user'; text: string; provider?: 'mock' | 'gemini' | 'local' | 'error' }
 
 const welcome: Message = {
   from: 'assistant',
@@ -37,8 +37,9 @@ export function Assistant() {
     try {
       const reply = await askAssistant(text)
       setMessages((current) => [...current, { from: 'assistant', text: reply.answer, provider: reply.provider }])
-    } catch {
-      setMessages((current) => [...current, { from: 'assistant', text: `${mockReply(text)} (API indisponível; resposta local.)`, provider: 'local' }])
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Erro desconhecido ao contactar o backend.'
+      setMessages((current) => [...current, { from: 'assistant', text: `Não consegui ligar ao Gemini: ${detail}\n\nResposta de demonstração: ${mockReply(text)}`, provider: 'error' }])
     } finally {
       setSending(false)
     }
@@ -58,7 +59,7 @@ export function Assistant() {
             {messages.map((message, index) => (
               <div className={`chat-message ${message.from}`} key={`${index}-${message.from}`}>
                 {message.from === 'assistant' && <Bot size={15} />}
-                <div><p>{message.text}</p>{message.provider && <small className="chat-provider">{message.provider === 'gemini' ? 'Gemini' : message.provider === 'local' ? 'Resposta local' : 'Modo demonstração'}</small>}</div>
+                <div><p>{message.text}</p>{message.provider && <small className="chat-provider">{message.provider === 'gemini' ? 'Gemini' : message.provider === 'error' ? 'Erro de ligação' : message.provider === 'local' ? 'Resposta local' : 'Modo demonstração'}</small>}</div>
               </div>
             ))}
             {messages.length === 1 && (

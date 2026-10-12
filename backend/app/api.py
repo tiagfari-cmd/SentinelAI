@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .assistant import answer_question
+from .assistant import GeminiRequestError, answer_question
 from .detection import AuthenticationEvent
 from .repositories import (
     event_from_model,
@@ -93,6 +93,11 @@ async def ask_assistant(
             event_count=len(list_events(session)),
             alert_count=len(list_alerts(session)),
         )
+    except GeminiRequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
     except (httpx.HTTPError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
