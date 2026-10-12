@@ -29,6 +29,10 @@ Concluída na Fase 4: dashboard React/TypeScript, visualização dos eventos da
 API, filtros, exportação JSON, detalhe de alertas e assistente ligado ao
 backend. O assistente usa respostas mockadas por omissão; Gemini é opcional.
 
+Proteção inicial: os endpoints de eventos, alertas e assistente aceitam um
+Bearer token opcional em desenvolvimento e exigem-no em produção. O dashboard
+tem um ecrã de acesso e mantém o token só na memória da página.
+
 ## Processo de desenvolvimento
 
 O SentinelAI está a ser construído por marcos pequenos. Cada marco deve ter um
@@ -310,12 +314,15 @@ termos do provedor e as regras de privacidade aplicáveis.
 ## Limitações conhecidas
 
 - A persistência funciona localmente, mas ainda não há configuração de ambiente de produção.
+- A proteção usa um token de operador partilhado; ainda faltam contas individuais,
+  limitação de pedidos e monitorização adequadas a uma API pública.
 - A regra considera apenas falhas por IP, sem contexto adicional.
 - Não existe confirmação automática de ataque nem resposta automática.
 
 ## Próximos marcos
 
-1. Preparar autenticação e controlos de abuso antes de expor a API publicamente.
+1. Acrescentar autenticação individual, limites de pedidos e monitorização antes
+   de expor a API publicamente.
 2. Configurar hospedagem, domínio, base de dados gerida e segredos de produção.
 3. Ligar uma chave Gemini ao ambiente do servidor, se desejado; o modo mock é
    o comportamento padrão e não depende de chave.
