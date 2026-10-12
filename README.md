@@ -58,10 +58,10 @@ instante dos 60 segundos; a verificação final passou nos 10 testes.
 
 O motor da Fase 1 foi publicado na branch `feature/phase-1-detection`. A API da
 Fase 2 foi publicada na branch `feature/phase-2-rest-api`. A Fase 3 está na
-branch `feature/phase-3-database`. A Fase 4 está a ser desenvolvida em
+branch `feature/phase-3-database`. A Fase 4 está publicada em
 `feature/phase-4-dashboard`, baseada na Fase 3.
 
-Na Fase 2, acrescentámos quatro endpoints HTTP e validação de pedidos com
+Na Fase 2, acrescentámos endpoints HTTP e validação de pedidos com
 Pydantic. Na Fase 3, os eventos e alertas passaram a ser guardados em tabelas;
 uma sessão de base de dados gere as operações de cada pedido, e Alembic aplica
 alterações ao esquema através de migrações versionadas. Na Fase 4, o frontend
@@ -78,8 +78,8 @@ backend; envia apenas contagens agregadas, nunca IPs, nomes ou eventos brutos.
 - **Ordenação antes da deteção:** a ordem do ficheiro não altera o resultado.
 - **Alerta baseado em evidência:** o resultado descreve falhas observadas e não
   classifica o evento como ataque confirmado.
-- **IA fica para mais tarde:** a regra de deteção é determinística e continuará
-  separada de qualquer explicação gerada por um modelo.
+- **IA separada da deteção:** a regra continua determinística; a IA é opcional,
+  corre só no backend e recebe apenas métricas agregadas.
 - **Base de dados substituível:** SQLAlchemy evita prender a lógica da aplicação
   a SQLite ou PostgreSQL.
 - **Migrações versionadas:** Alembic altera o esquema sem apagar dados como
@@ -298,8 +298,8 @@ termos do provedor e as regras de privacidade aplicáveis.
 
 ## Próximos marcos
 
-1. Configurar hospedagem de produção, domínio, base de dados gerida e segredos.
-2. Ligar uma chave Gemini ao ambiente do servidor, se desejado; o modo mock é
+1. Preparar autenticação e controlos de abuso antes de expor a API publicamente.
+2. Configurar hospedagem, domínio, base de dados gerida e segredos de produção.
+3. Ligar uma chave Gemini ao ambiente do servidor, se desejado; o modo mock é
    o comportamento padrão e não depende de chave.
-3. Reforçar segurança, CI e preparação para demonstração pública.
 
