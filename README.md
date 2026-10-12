@@ -65,9 +65,11 @@ Fase 2 foi publicada na branch `feature/phase-2-rest-api`. A Fase 3 está na
 branch `feature/phase-3-database`. A Fase 4 está publicada em
 `feature/phase-4-dashboard`, baseada na Fase 3.
 
-O GitHub Actions executa os testes do backend e verifica build e lint do
-frontend em cada push e pull request. O workflow só tem permissão de leitura e
-não usa segredos nem faz deploy automático.
+O GitHub Actions executa os testes do backend, verifica build e lint do frontend
+e audita dependências Python e JavaScript em cada push e pull request. A auditoria
+de dependências também corre semanalmente para detetar avisos publicados depois
+de uma alteração ao código. O workflow só tem permissão de leitura e não usa
+segredos nem faz deploy automático.
 
 Na Fase 2, acrescentámos endpoints HTTP e validação de pedidos com
 Pydantic. Na Fase 3, os eventos e alertas passaram a ser guardados em tabelas;
@@ -298,6 +300,15 @@ simples para uma demonstração privada com poucos operadores, não substitui
 autenticação de utilizadores, limitação de pedidos ou monitorização numa
 instalação pública de produção.
 
+### Auditoria de dependências
+
+O CI usa `pip-audit` para comparar as dependências Python declaradas com avisos
+de vulnerabilidades conhecidos e `npm audit` para as dependências JavaScript do
+ficheiro de lock. Uma falha na auditoria requer rever o aviso e atualizar ou
+substituir a dependência afetada. Estes relatórios ajudam a encontrar problemas
+conhecidos, mas não provam que o código ou as dependências estão livres de
+vulnerabilidades.
+
 ### Assistente opcional Gemini
 
 Por omissão, `POST /assistant` responde sem chamadas externas. Para ativar o
@@ -321,7 +332,8 @@ termos do provedor e as regras de privacidade aplicáveis.
 
 - A persistência funciona localmente, mas ainda não há configuração de ambiente de produção.
 - A proteção usa um token de operador partilhado; ainda faltam contas individuais,
-  limitação de pedidos e monitorização adequadas a uma API pública.
+  limitação de pedidos e monitorização adequadas a uma API pública. As auditorias
+  automáticas só detetam vulnerabilidades conhecidas nas dependências.
 - A regra considera apenas falhas por IP, sem contexto adicional.
 - Não existe confirmação automática de ataque nem resposta automática.
 
