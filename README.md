@@ -301,12 +301,14 @@ ficheiro. De seguida, constrói e inicia os serviços:
 docker compose up --build
 ```
 
-Abre `http://localhost:8080` para o dashboard e `http://localhost:8000/docs`
-para a documentação da API. O dashboard encaminha os pedidos da API pelo
-próprio servidor web; os serviços só ficam acessíveis a partir do computador
-local. A base de dados SQLite fica num volume Docker e as migrações são
-aplicadas no arranque da API. `docker compose down` pára os serviços sem apagar
-os dados; `docker compose down -v` também apaga o volume e todos os dados locais.
+Abre `http://localhost:8080` para o dashboard e `http://localhost:8001/docs`
+para a documentação da API. O mapeamento `8001:8000` evita conflito com uma API
+de desenvolvimento que já esteja a usar a porta local `8000`. O dashboard
+encaminha os pedidos da API pelo próprio servidor web; os serviços só ficam
+acessíveis a partir do computador local. A base de dados SQLite fica num volume
+Docker e as migrações são aplicadas no arranque da API. `docker compose down`
+pára os serviços sem apagar os dados; `docker compose down -v` também apaga o
+volume e todos os dados locais.
 
 O browser só permite chamadas locais à API na origem de desenvolvimento do
 Vite. Para outro domínio, configura `CORS_ALLOWED_ORIGINS` no backend com uma
