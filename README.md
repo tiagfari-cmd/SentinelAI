@@ -18,7 +18,9 @@ Concluído na Fase 1:
 - supressão de alertas repetidos para a mesma sequência;
 - testes automáticos com a biblioteca padrão do Python.
 
-Ainda não inclui API, base de dados, frontend, Docker ou integração com IA.
+Concluída localmente na Fase 2: API REST com FastAPI. A API recebe e lista
+eventos, e calcula alertas. Os eventos ficam apenas na memória e desaparecem
+quando o servidor é reiniciado.
 
 ## Processo de desenvolvimento
 
@@ -47,11 +49,16 @@ dados inválidos e supressão de duplicados. Um teste que falhou durante o
 desenvolvimento ajudou-nos a corrigir a forma de representar exatamente o
 instante dos 60 segundos; a verificação final passou nos 10 testes.
 
-O trabalho está na branch `feature/phase-1-detection`, com um commit local e
-publicado no GitHub. O próximo passo do fluxo é rever esta fase numa pull
-request antes de integrar as alterações na branch principal.
+O motor da Fase 1 foi publicado na branch `feature/phase-1-detection`. A API da
+Fase 2 está a ser preparada na branch `feature/phase-2-rest-api`; depois da
+revisão, o próximo passo é abrir uma pull request antes de integrar as alterações
+na branch principal.
 
-### Decisões técnicas desta fase
+Na Fase 2, acrescentámos quatro endpoints HTTP e validação de pedidos com
+Pydantic. Os testes fazem pedidos à aplicação sem iniciar um servidor de rede.
+Até agora, os 16 testes das duas fases passam em conjunto.
+
+### Decisões técnicas
 
 - **Python padrão:** não há dependências para instalar nem configurar.
 - **UTC e fuso horário obrigatório:** eventos de fusos diferentes podem ser
@@ -62,6 +69,8 @@ request antes de integrar as alterações na branch principal.
   classifica o evento como ataque confirmado.
 - **IA fica para mais tarde:** a regra de deteção é determinística e continuará
   separada de qualquer explicação gerada por um modelo.
+- **API sem base de dados nesta fase:** uma lista em memória deixa-nos aprender
+  pedidos HTTP sem misturar já esse tema com PostgreSQL.
 
 Quando uma fase terminar, este README deve indicar o que foi implementado, como
 executar e testar, que decisões foram tomadas e que limitações continuam em
@@ -74,18 +83,23 @@ motivo e o funcionamento delas.
 backend/
 ├── app/
 │   ├── __init__.py       # identifica a pasta como um pacote Python
+│   ├── api.py            # endpoints HTTP da API
 │   ├── detection.py      # valida eventos e aplica a regra de deteção
-│   └── main.py           # programa executado na linha de comandos
+│   ├── main.py           # programa da Fase 1 executado na linha de comandos
+│   └── schemas.py        # validação e formato dos dados da API
 └── tests/
+    ├── test_api.py       # testes dos pedidos HTTP
     └── test_detection.py # testes automáticos do motor
 data/
 └── sample_logs.json      # eventos fictícios para demonstração
+requirements.txt          # dependências necessárias para a API
 ```
 
 ## Requisitos
 
 - Python 3.11 ou mais recente.
-- Não são necessárias dependências externas.
+- Para a Fase 1 não são necessárias dependências externas.
+- Para a API, instalar as dependências listadas em `requirements.txt`.
 
 ## Executar no Windows
 
@@ -100,6 +114,63 @@ Para executar os testes:
 ```powershell
 py -m unittest discover -s backend\tests -v
 ```
+
+### Iniciar a API REST
+
+Criar um ambiente virtual e instalar as dependências:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+py -m pip install -r requirements.txt
+```
+
+Iniciar o servidor local:
+
+```powershell
+py -m uvicorn backend.app.api:app --reload
+```
+
+Com o servidor em execução, abrir `http://127.0.0.1:8000/docs` para experimentar
+os endpoints interativamente. `Ctrl+C` pára o servidor. Se o PowerShell impedir
+a ativação do ambiente virtual, também é possível executar o Python diretamente:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn backend.app.api:app --reload
+```
+
+Também é possível enviar um evento a partir de outro terminal PowerShell:
+
+```powershell
+$evento = @{
+  timestamp = "2026-10-12T09:00:00Z"
+  ip_address = "203.0.113.42"
+  username = "ana"
+  outcome = "failed"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:8000/events" `
+  -ContentType "application/json" `
+  -Body $evento
+```
+
+Os pedidos `POST /events` acrescentam eventos só à memória do processo. Esta
+versão é adequada para aprendizagem e demonstração local, não para guardar dados
+de forma permanente.
+
+### Endpoints disponíveis
+
+| Método | Caminho | Resultado |
+| --- | --- | --- |
+| `GET` | `/health` | Confirma que a API responde. |
+| `GET` | `/events` | Lista os eventos recebidos, por ordem cronológica. |
+| `POST` | `/events` | Valida e guarda um evento; responde com `201 Created`. |
+| `GET` | `/alerts` | Calcula alertas a partir dos eventos em memória. |
+
+Um pedido com campos inválidos recebe `422 Unprocessable Entity`, com detalhes
+sobre os campos que falharam a validação.
 
 ## Formato dos eventos
 
@@ -142,9 +213,8 @@ ordenação cronológica.
 
 ## Próximos marcos
 
-1. Afinar o modelo de eventos e acrescentar mais casos de teste.
-2. Criar uma API REST pequena com FastAPI.
-3. Adicionar PostgreSQL e migrações.
-4. Construir o dashboard React.
-5. Acrescentar explicações de IA separadas da deteção determinística.
+1. Rever a API REST da Fase 2 e integrar a pull request.
+2. Adicionar PostgreSQL e migrações.
+3. Construir o dashboard React.
+4. Acrescentar explicações de IA separadas da deteção determinística.
 
