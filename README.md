@@ -18,9 +18,12 @@ Concluído na Fase 1:
 - supressão de alertas repetidos para a mesma sequência;
 - testes automáticos com a biblioteca padrão do Python.
 
-Concluída localmente na Fase 2: API REST com FastAPI. A API recebe e lista
-eventos, e calcula alertas. Os eventos ficam apenas na memória e desaparecem
-quando o servidor é reiniciado.
+Concluída na Fase 2: API REST com FastAPI. A API recebe e lista eventos e
+calcula alertas.
+
+Em desenvolvimento na Fase 3: persistência com SQLAlchemy, PostgreSQL e
+migrações Alembic. SQLite é usado por omissão para simplificar a execução local;
+PostgreSQL pode ser selecionado através de `DATABASE_URL`.
 
 ## Processo de desenvolvimento
 
@@ -50,13 +53,15 @@ desenvolvimento ajudou-nos a corrigir a forma de representar exatamente o
 instante dos 60 segundos; a verificação final passou nos 10 testes.
 
 O motor da Fase 1 foi publicado na branch `feature/phase-1-detection`. A API da
-Fase 2 está a ser preparada na branch `feature/phase-2-rest-api`; depois da
-revisão, o próximo passo é abrir uma pull request antes de integrar as alterações
-na branch principal.
+Fase 2 foi publicada na branch `feature/phase-2-rest-api`. A Fase 3 está a ser
+desenvolvida numa branch própria para revisão antes de integrar alterações na
+branch principal.
 
 Na Fase 2, acrescentámos quatro endpoints HTTP e validação de pedidos com
-Pydantic. Os testes fazem pedidos à aplicação sem iniciar um servidor de rede.
-Até agora, os 16 testes das duas fases passam em conjunto.
+Pydantic. Na Fase 3, os eventos e alertas passam a ser guardados em tabelas;
+uma sessão de base de dados gere as operações de cada pedido, e Alembic aplica
+alterações ao esquema através de migrações versionadas. A regra de deteção
+continua separada da persistência.
 
 ### Decisões técnicas
 
@@ -69,8 +74,12 @@ Até agora, os 16 testes das duas fases passam em conjunto.
   classifica o evento como ataque confirmado.
 - **IA fica para mais tarde:** a regra de deteção é determinística e continuará
   separada de qualquer explicação gerada por um modelo.
-- **API sem base de dados nesta fase:** uma lista em memória deixa-nos aprender
-  pedidos HTTP sem misturar já esse tema com PostgreSQL.
+- **Base de dados substituível:** SQLAlchemy evita prender a lógica da aplicação
+  a SQLite ou PostgreSQL.
+- **Migrações versionadas:** Alembic altera o esquema sem apagar dados como
+  parte normal da evolução da aplicação.
+- **Testes isolados:** cada teste da API usa SQLite em memória e não depende de
+  uma instalação local de PostgreSQL.
 
 Quando uma fase terminar, este README deve indicar o que foi implementado, como
 executar e testar, que decisões foram tomadas e que limitações continuam em
@@ -84,8 +93,11 @@ backend/
 ├── app/
 │   ├── __init__.py       # identifica a pasta como um pacote Python
 │   ├── api.py            # endpoints HTTP da API
+│   ├── database.py       # ligação e sessões SQLAlchemy
 │   ├── detection.py      # valida eventos e aplica a regra de deteção
 │   ├── main.py           # programa da Fase 1 executado na linha de comandos
+│   ├── models.py         # tabelas de eventos e alertas
+│   ├── repositories.py   # operações de leitura e escrita na base de dados
 │   └── schemas.py        # validação e formato dos dados da API
 └── tests/
     ├── test_api.py       # testes dos pedidos HTTP
@@ -93,13 +105,16 @@ backend/
 data/
 └── sample_logs.json      # eventos fictícios para demonstração
 requirements.txt          # dependências necessárias para a API
+alembic.ini               # configuração das migrações
+migrations/               # histórico de alterações às tabelas
+.env.example              # exemplo de configuração sem credenciais reais
 ```
 
 ## Requisitos
 
 - Python 3.11 ou mais recente.
 - Para a Fase 1 não são necessárias dependências externas.
-- Para a API, instalar as dependências listadas em `requirements.txt`.
+- Para a API e base de dados, instalar as dependências listadas em `requirements.txt`.
 
 ## Executar no Windows
 
@@ -109,19 +124,20 @@ Abra o PowerShell na raiz do projeto e execute:
 py -m backend.app.main data\sample_logs.json
 ```
 
-Para executar os testes:
+Depois de instalar as dependências no ambiente virtual, executar todos os testes:
 
 ```powershell
-py -m unittest discover -s backend\tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s backend\tests -v
 ```
 
 ### Iniciar a API REST
 
-Criar um ambiente virtual e instalar as dependências:
+Criar um ambiente virtual, instalar as dependências e preparar a base SQLite:
 
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\alembic.exe upgrade head
 ```
 
 Iniciar o servidor local usando o Python do ambiente virtual:
@@ -131,9 +147,23 @@ Iniciar o servidor local usando o Python do ambiente virtual:
 ```
 
 Com o servidor em execução, abrir `http://127.0.0.1:8000/docs` para experimentar
-os endpoints interativamente. `Ctrl+C` pára o servidor. Não é necessário ativar
-o ambiente virtual; assim evitamos depender da política de execução de scripts do
-PowerShell. Se optares por ativá-lo, usa `py -m uvicorn ...` depois da ativação.
+os endpoints interativamente. `Ctrl+C` pára o servidor. A base SQLite fica no
+ficheiro `sentinelai.db` e mantém os eventos depois de reiniciar a API. Não é
+necessário ativar o ambiente virtual; assim evitamos depender da política de
+execução de scripts do PowerShell.
+
+Para usar PostgreSQL, cria primeiro uma base de dados local e define a URL antes
+de executar a migração e iniciar a API:
+
+```powershell
+$env:DATABASE_URL = "postgresql+psycopg://sentinelai:password@localhost:5432/sentinelai"
+.\.venv\Scripts\alembic.exe upgrade head
+.\.venv\Scripts\python.exe -m uvicorn backend.app.api:app --reload
+```
+
+Substitui `password` pelas credenciais locais. Não guardes credenciais reais no
+Git. `.env.example` é apenas uma referência; o PowerShell não carrega ficheiros
+`.env` automaticamente.
 
 Também é possível enviar um evento a partir de outro terminal PowerShell:
 
@@ -151,9 +181,9 @@ Invoke-RestMethod -Method Post `
   -Body $evento
 ```
 
-Os pedidos `POST /events` acrescentam eventos só à memória do processo. Esta
-versão é adequada para aprendizagem e demonstração local, não para guardar dados
-de forma permanente.
+Os pedidos `POST /events` guardam o evento e qualquer novo alerta detetado na
+base de dados. Uma chave única evita guardar repetidamente a mesma sequência.
+Esta demonstração ainda não tem autenticação e não deve ser exposta publicamente.
 
 ### Endpoints disponíveis
 
@@ -162,7 +192,7 @@ de forma permanente.
 | `GET` | `/health` | Confirma que a API responde. |
 | `GET` | `/events` | Lista os eventos recebidos, por ordem cronológica. |
 | `POST` | `/events` | Valida e guarda um evento; responde com `201 Created`. |
-| `GET` | `/alerts` | Calcula alertas a partir dos eventos em memória. |
+| `GET` | `/alerts` | Lista alertas persistidos, incluindo a hora da deteção. |
 
 Um pedido com campos inválidos recebe `422 Unprocessable Entity`, com detalhes
 sobre os campos que falharam a validação.
@@ -202,14 +232,14 @@ ordenação cronológica.
 
 ## Limitações conhecidas
 
-- Os dados existem apenas em ficheiros; ainda não há persistência.
+- A persistência funciona localmente, mas ainda não há configuração de ambiente de produção.
 - A regra considera apenas falhas por IP, sem contexto adicional.
 - Não existe confirmação automática de ataque nem resposta automática.
 
 ## Próximos marcos
 
-1. Rever a API REST da Fase 2 e integrar a pull request.
-2. Adicionar PostgreSQL e migrações.
-3. Construir o dashboard React.
-4. Acrescentar explicações de IA separadas da deteção determinística.
+1. Concluir e rever a Fase 3: PostgreSQL, SQLAlchemy e migrações.
+2. Construir o dashboard React e o chatbot visual com respostas de demonstração.
+3. Acrescentar explicações de IA separadas da deteção determinística.
+4. Reforçar segurança, CI e preparação para demonstração pública.
 

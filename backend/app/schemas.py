@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from .detection import AuthenticationEvent, SecurityAlert
+from .detection import AuthenticationEvent
 
 
 class AuthenticationEventSchema(BaseModel):
@@ -53,12 +53,19 @@ class SecurityAlertSchema(BaseModel):
     ip_address: str
     first_failure: datetime
     last_failure: datetime
+    detected_at: datetime
     failure_count: int
     usernames: tuple[str, ...]
     message: str
 
+    @field_validator("first_failure", "last_failure", "detected_at")
     @classmethod
-    def from_alert(cls, alert: SecurityAlert) -> "SecurityAlertSchema":
-        """Converte o resultado interno da regra para a resposta HTTP."""
+    def alert_timestamps_are_utc(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
-        return cls.model_validate(alert)
+
+__all__ = ["AuthenticationEventSchema", "SecurityAlertSchema"]
+# End of public API schemas.
+

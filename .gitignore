@@ -6,6 +6,9 @@ htmlcov/
 .venv/
 venv/
 .env
+*.db
+*.sqlite
+*.sqlite3
 .idea/
 .vscode/
 .DS_Store

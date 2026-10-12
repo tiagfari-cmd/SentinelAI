@@ -1,20 +1,24 @@
 """Endpoints HTTP da API inicial do SentinelAI."""
 
-from fastapi import FastAPI, status
+from fastapi import Depends, FastAPI, status
+from sqlalchemy.orm import Session
 
-from .detection import AuthenticationEvent, detect_failed_login_bursts
+from .database import get_db
+from .detection import AuthenticationEvent
+from .repositories import (
+    event_from_model,
+    list_alerts,
+    list_events,
+    save_event_and_new_alerts,
+)
 from .schemas import AuthenticationEventSchema, SecurityAlertSchema
 
 
 app = FastAPI(
     title="SentinelAI API",
     description="API educativa para eventos e alertas de autenticação suspeita.",
-    version="0.2.0",
+    version="0.3.0",
 )
-
-# Armazenamento temporário: os eventos desaparecem quando a API é reiniciada.
-events: list[AuthenticationEvent] = []
-
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
@@ -24,10 +28,10 @@ def health_check() -> dict[str, str]:
 
 
 @app.get("/events", response_model=list[AuthenticationEventSchema])
-def list_events() -> list[AuthenticationEvent]:
+def get_events(session: Session = Depends(get_db)) -> list[AuthenticationEvent]:
     """Devolve os eventos guardados, por ordem cronológica."""
 
-    return sorted(events, key=lambda event: event.timestamp)
+    return [event_from_model(row) for row in list_events(session)]
 
 
 @app.post(
@@ -35,17 +39,19 @@ def list_events() -> list[AuthenticationEvent]:
     response_model=AuthenticationEventSchema,
     status_code=status.HTTP_201_CREATED,
 )
-def create_event(event: AuthenticationEventSchema) -> AuthenticationEvent:
-    """Valida e guarda um evento durante a execução atual da API."""
+def create_event(
+    event: AuthenticationEventSchema,
+    session: Session = Depends(get_db),
+) -> AuthenticationEvent:
+    """Valida e guarda um evento e atualiza os alertas detetados."""
 
     validated_event = event.to_detection_event()
-    events.append(validated_event)
-    return validated_event
+    saved = save_event_and_new_alerts(session, validated_event)
+    return event_from_model(saved)
 
 
 @app.get("/alerts", response_model=list[SecurityAlertSchema])
-def list_alerts() -> list[SecurityAlertSchema]:
-    """Executa a regra de deteção sobre os eventos atualmente guardados."""
+def get_alerts(session: Session = Depends(get_db)) -> list[SecurityAlertSchema]:
+    """Devolve os alertas persistidos, incluindo quando foram detetados."""
 
-    alerts = detect_failed_login_bursts(events)
-    return [SecurityAlertSchema.from_alert(alert) for alert in alerts]
+    return [SecurityAlertSchema.model_validate(row) for row in list_alerts(session)]
