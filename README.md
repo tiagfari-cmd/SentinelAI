@@ -65,6 +65,10 @@ Fase 2 foi publicada na branch `feature/phase-2-rest-api`. A Fase 3 está na
 branch `feature/phase-3-database`. A Fase 4 está publicada em
 `feature/phase-4-dashboard`, baseada na Fase 3.
 
+O GitHub Actions executa os testes do backend e verifica build e lint do
+frontend em cada push e pull request. O workflow só tem permissão de leitura e
+não usa segredos nem faz deploy automático.
+
 Na Fase 2, acrescentámos endpoints HTTP e validação de pedidos com
 Pydantic. Na Fase 3, os eventos e alertas passaram a ser guardados em tabelas;
 uma sessão de base de dados gere as operações de cada pedido, e Alembic aplica
@@ -121,11 +125,13 @@ alembic.ini               # configuração das migrações
 migrations/               # histórico de alterações às tabelas
 .env.example              # exemplo de configuração sem credenciais reais
 frontend/                 # interface React, TypeScript, Tailwind e Recharts
+.github/workflows/        # testes e verificações em cada push/PR
 ```
 
 ## Requisitos
 
 - Python 3.11 ou mais recente.
+- Node.js 24 ou mais recente para o frontend.
 - Para a Fase 1 não são necessárias dependências externas.
 - Para a API e base de dados, instalar as dependências listadas em `requirements.txt`.
 
