@@ -25,8 +25,9 @@ Concluída na Fase 3: persistência com SQLAlchemy, PostgreSQL compatível e
 migrações Alembic. SQLite é usado por omissão para simplificar a execução local;
 PostgreSQL pode ser selecionado através de `DATABASE_URL`.
 
-Em desenvolvimento na Fase 4: dashboard React/TypeScript, visualização dos
-eventos da API e assistente de demonstração com respostas mockadas.
+Concluída na Fase 4: dashboard React/TypeScript, visualização dos eventos da
+API, filtros, exportação JSON, detalhe de alertas e assistente ligado ao
+backend. O assistente usa respostas mockadas por omissão; Gemini é opcional.
 
 ## Processo de desenvolvimento
 
@@ -65,7 +66,8 @@ Pydantic. Na Fase 3, os eventos e alertas passaram a ser guardados em tabelas;
 uma sessão de base de dados gere as operações de cada pedido, e Alembic aplica
 alterações ao esquema através de migrações versionadas. Na Fase 4, o frontend
 consulta a API e apresenta uma amostra fictícia quando a API local não está
-disponível. O assistente também é simulado e não envia dados a nenhum LLM.
+disponível. O assistente pode usar Gemini se for explicitamente ativado no
+backend; envia apenas contagens agregadas, nunca IPs, nomes ou eventos brutos.
 
 ### Decisões técnicas
 
@@ -200,6 +202,7 @@ Esta demonstração ainda não tem autenticação e não deve ser exposta public
 | `GET` | `/events` | Lista os eventos recebidos, por ordem cronológica. |
 | `POST` | `/events` | Valida e guarda um evento; responde com `201 Created`. |
 | `GET` | `/alerts` | Lista alertas persistidos, incluindo a hora da deteção. |
+| `POST` | `/assistant` | Responde em modo mock ou, se configurado, via Gemini. |
 
 Um pedido com campos inválidos recebe `422 Unprocessable Entity`, com detalhes
 sobre os campos que falharam a validação.
@@ -243,7 +246,9 @@ O dashboard está em `frontend/`. Mostra indicadores calculados a partir dos
 eventos e alertas devolvidos pela API, permite pesquisar e filtrar eventos,
 exportar os eventos apresentados para JSON e abrir detalhes de um alerta. Se a
 API não estiver disponível, apresenta uma pequena amostra de dados fictícios e
-identifica-a claramente. O assistente responde apenas com texto de demonstração.
+identifica-a claramente. O assistente usa respostas de demonstração por
+omissão; pode usar Gemini no backend, enviando ao modelo apenas contagens
+agregadas de eventos e alertas.
 
 Numa janela PowerShell, inicia a API seguindo as instruções acima. Noutra,
 instala as dependências e inicia o dashboard:
@@ -266,6 +271,25 @@ Vite. Para outro domínio, configura `CORS_ALLOWED_ORIGINS` no backend com uma
 lista separada por vírgulas de origens explicitamente permitidas. CORS não é
 autenticação nem substitui proteger uma API pública.
 
+### Assistente opcional Gemini
+
+Por omissão, `POST /assistant` responde sem chamadas externas. Para ativar o
+provedor, define `ASSISTANT_PROVIDER=gemini`, guarda `GEMINI_API_KEY` como
+variável de ambiente **no backend** e, opcionalmente, escolhe `GEMINI_MODEL`.
+O frontend nunca recebe a chave. O pedido ao provedor contém a pergunta e apenas
+o total de eventos e alertas — não inclui IPs, nomes de utilizador nem registos
+brutos. O modo mock continua disponível sem chave.
+
+```powershell
+$env:ASSISTANT_PROVIDER = "gemini"
+$env:GEMINI_API_KEY = "a-tua-chave-local"
+\.venv\Scripts\python.exe -m uvicorn backend.app.api:app --reload
+```
+
+Não coloques a chave num ficheiro versionado, numa variável `VITE_*` ou em
+mensagens públicas. Antes de ativar Gemini com dados operacionais, revê os
+termos do provedor e as regras de privacidade aplicáveis.
+
 ## Limitações conhecidas
 
 - A persistência funciona localmente, mas ainda não há configuração de ambiente de produção.
@@ -274,8 +298,8 @@ autenticação nem substitui proteger uma API pública.
 
 ## Próximos marcos
 
-1. Concluir e rever o dashboard, ligando-o ao backend hospedado.
-2. Acrescentar explicações de IA separadas da deteção determinística, com uma
-   chave protegida no backend e o modo mock disponível.
+1. Configurar hospedagem de produção, domínio, base de dados gerida e segredos.
+2. Ligar uma chave Gemini ao ambiente do servidor, se desejado; o modo mock é
+   o comportamento padrão e não depende de chave.
 3. Reforçar segurança, CI e preparação para demonstração pública.
 

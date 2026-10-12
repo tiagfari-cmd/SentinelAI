@@ -2,6 +2,7 @@
 
 import asyncio
 import unittest
+from unittest.mock import patch
 
 import httpx
 from sqlalchemy.pool import StaticPool
@@ -60,6 +61,19 @@ class ApiTests(unittest.TestCase):
         )
 
         self.assertEqual(response.headers["access-control-allow-origin"], "http://localhost:5173")
+
+    def test_assistant_defaults_to_mock_without_sending_event_details(self) -> None:
+        with patch.dict("os.environ", {"ASSISTANT_PROVIDER": "mock"}, clear=False):
+            response = self.request("POST", "/assistant", json={"message": "Como investigo alertas?"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["provider"], "mock")
+        self.assertIn("alertas guardados", response.json()["answer"])
+
+    def test_assistant_rejects_blank_question(self) -> None:
+        response = self.request("POST", "/assistant", json={"message": "   "})
+
+        self.assertEqual(response.status_code, 422)
 
     def test_events_start_empty(self) -> None:
         response = self.request("GET", "/events")

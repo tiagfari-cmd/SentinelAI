@@ -66,6 +66,27 @@ class SecurityAlertSchema(BaseModel):
         return value.astimezone(timezone.utc)
 
 
-__all__ = ["AuthenticationEventSchema", "SecurityAlertSchema"]
+class AssistantRequest(BaseModel):
+    """A bounded question for the optional security assistant."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("message")
+    @classmethod
+    def message_must_not_be_blank(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("message não pode estar vazio")
+        return normalized
+
+
+class AssistantResponse(BaseModel):
+    answer: str
+    provider: Literal["mock", "gemini"]
+
+
+__all__ = ["AssistantRequest", "AssistantResponse", "AuthenticationEventSchema", "SecurityAlertSchema"]
 # End of public API schemas.
 

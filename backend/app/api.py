@@ -2,11 +2,13 @@
 
 import os
 
-from fastapi import Depends, FastAPI, status
+import httpx
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from .database import get_db
+from .assistant import answer_question
 from .detection import AuthenticationEvent
 from .repositories import (
     event_from_model,
@@ -14,7 +16,12 @@ from .repositories import (
     list_events,
     save_event_and_new_alerts,
 )
-from .schemas import AuthenticationEventSchema, SecurityAlertSchema
+from .schemas import (
+    AssistantRequest,
+    AssistantResponse,
+    AuthenticationEventSchema,
+    SecurityAlertSchema,
+)
 
 
 app = FastAPI(
@@ -71,3 +78,24 @@ def get_alerts(session: Session = Depends(get_db)) -> list[SecurityAlertSchema]:
     """Devolve os alertas persistidos, incluindo quando foram detetados."""
 
     return [SecurityAlertSchema.model_validate(row) for row in list_alerts(session)]
+
+
+@app.post("/assistant", response_model=AssistantResponse)
+async def ask_assistant(
+    request: AssistantRequest,
+    session: Session = Depends(get_db),
+) -> AssistantResponse:
+    """Answers using aggregate counts only; provider is opt-in via server env."""
+
+    try:
+        answer, provider = await answer_question(
+            request.message,
+            event_count=len(list_events(session)),
+            alert_count=len(list_alerts(session)),
+        )
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="O assistente externo não conseguiu responder. Tenta novamente mais tarde.",
+        ) from exc
+    return AssistantResponse(answer=answer, provider=provider)

@@ -12,6 +12,17 @@ async function fetchJson<T>(path: string): Promise<T> {
   return response.json() as Promise<T>
 }
 
+export async function askAssistant(message: string): Promise<{ answer: string; provider: 'mock' | 'gemini' }> {
+  const response = await fetch(`${apiBase}/assistant`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+    signal: AbortSignal.timeout(25_000),
+  })
+  if (!response.ok) throw new Error(`API respondeu com HTTP ${response.status}`)
+  return response.json() as Promise<{ answer: string; provider: 'mock' | 'gemini' }>
+}
+
 export async function loadDashboardData(): Promise<DashboardData> {
   try {
     const [events, alerts] = await Promise.all([
