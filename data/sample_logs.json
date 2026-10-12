@@ -1,0 +1,62 @@
+[
+  {
+    "timestamp": "2026-10-12T09:00:32Z",
+    "ip_address": "203.0.113.42",
+    "username": "ana",
+    "outcome": "failed"
+  },
+  {
+    "timestamp": "2026-10-12T09:00:00Z",
+    "ip_address": "203.0.113.42",
+    "username": "ana",
+    "outcome": "failed"
+  },
+  {
+    "timestamp": "2026-10-12T09:00:08Z",
+    "ip_address": "203.0.113.42",
+    "username": "ana",
+    "outcome": "failed"
+  },
+  {
+    "timestamp": "2026-10-12T09:00:16Z",
+    "ip_address": "203.0.113.42",
+    "username": "admin",
+    "outcome": "failed"
+  },
+  {
+    "timestamp": "2026-10-12T09:00:24Z",
+    "ip_address": "203.0.113.42",
+    "username": "ana",
+    "outcome": "failed"
+  },
+  {
+    "timestamp": "2026-10-12T09:00:40Z",
+    "ip_address": "203.0.113.42",
+    "username": "ana",
+    "outcome": "failed"
+  },
+  {
+    "timestamp": "2026-10-12T09:01:00Z",
+    "ip_address": "198.51.100.9",
+    "username": "rui",
+    "outcome": "success"
+  },
+  {
+    "timestamp": "2026-10-12T09:01:10Z",
+    "ip_address": "198.51.100.9",
+    "username": "rui",
+    "outcome": "failed"
+  },
+  {
+    "timestamp": "2026-10-12T09:02:40Z",
+    "ip_address": "198.51.100.9",
+    "username": "rui",
+    "outcome": "failed"
+  },
+  {
+    "timestamp": "data-incorreta",
+    "ip_address": "192.0.2.10",
+    "username": "teste",
+    "outcome": "failed"
+  }
+]
