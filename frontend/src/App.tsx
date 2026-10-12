@@ -1,12 +1,12 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import {
-  Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Bell, Check,
+  Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Bell, Check, KeyRound,
   ChevronRight, CircleHelp, Clock3, Download, LayoutDashboard, Menu,
   RefreshCw, Search, Server, Shield, ShieldAlert, Users, X,
 } from 'lucide-react'
 import { Assistant } from './Assistant'
-import { loadDashboardData } from './api'
+import { loadDashboardData, setAccessToken, UnauthorizedError, verifyAccessToken } from './api'
 import type { AuthenticationEvent, DashboardData, SecurityAlert } from './types'
 import './App.css'
 
@@ -33,23 +33,52 @@ function App() {
   const [eventFilter, setEventFilter] = useState<EventFilter>('all')
   const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [accessRequired, setAccessRequired] = useState(false)
+  const [accessInput, setAccessInput] = useState('')
+  const [accessError, setAccessError] = useState('')
+  const [checkingAccess, setCheckingAccess] = useState(false)
 
   async function refresh() {
     setLoading(true)
-    setData(await loadDashboardData())
-    setLoading(false)
+    try {
+      setData(await loadDashboardData())
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        setAccessToken('')
+        setAccessRequired(true)
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
     let active = true
-    void loadDashboardData().then((initialData) => {
-      if (active) {
-        setData(initialData)
-        setLoading(false)
-      }
-    })
+    void loadDashboardData()
+      .then((initialData) => { if (active) setData(initialData) })
+      .catch((error: unknown) => { if (active && error instanceof UnauthorizedError) setAccessRequired(true) })
+      .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [])
+
+  async function unlock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const candidate = accessInput.trim()
+    if (!candidate || checkingAccess) return
+    setCheckingAccess(true)
+    setAccessError('')
+    try {
+      await verifyAccessToken(candidate)
+      setAccessToken(candidate)
+      setData(await loadDashboardData())
+      setAccessInput('')
+      setAccessRequired(false)
+    } catch (error) {
+      setAccessError(error instanceof Error ? error.message : 'Não foi possível validar o acesso.')
+    } finally {
+      setCheckingAccess(false)
+    }
+  }
 
   const filteredEvents = useMemo(() => data.events
     .filter((event) => eventFilter === 'all' || event.outcome === eventFilter)
@@ -66,6 +95,10 @@ function App() {
   const criticalAlerts = data.alerts.filter((alert) => alertPriority(alert) === 'critical').length
   const alertShare = data.alerts.length ? 100 : 0
   const criticalShare = data.alerts.length ? (criticalAlerts / data.alerts.length) * 100 : 0
+
+  if (accessRequired) {
+    return <AccessGate value={accessInput} onChange={setAccessInput} onSubmit={unlock} error={accessError} busy={checkingAccess} />
+  }
 
   function exportEvents() {
     const file = new Blob([JSON.stringify(data.events, null, 2)], { type: 'application/json' })
@@ -165,6 +198,30 @@ function AlertDialog({ alert, onClose }: { alert: SecurityAlert; onClose: () => 
 
 function EmptyState({ text }: { text: string }) {
   return <div className="empty-state"><span><ArrowDownRight size={18} /></span><p>{text}</p></div>
+}
+
+function AccessGate({ value, onChange, onSubmit, error, busy }: {
+  value: string
+  onChange: (value: string) => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  error: string
+  busy: boolean
+}) {
+  return (
+    <main className="access-gate">
+      <form className="access-card" onSubmit={onSubmit}>
+        <span className="access-mark"><KeyRound size={20} /></span>
+        <div className="brand access-brand">Sentinel<span className="brand-accent">AI</span></div>
+        <h1>Acesso protegido</h1>
+        <p>Introduz o token de acesso configurado no backend para abrir o dashboard.</p>
+        <label htmlFor="access-token">Token de acesso</label>
+        <input id="access-token" type="password" autoComplete="current-password" value={value} onChange={(event) => onChange(event.target.value)} autoFocus />
+        {error && <p className="access-error" role="alert">{error}</p>}
+        <button className="button primary" type="submit" disabled={!value.trim() || busy}>{busy ? 'A verificar…' : 'Entrar'}</button>
+        <small>O token fica apenas na memória desta página e desaparece ao atualizá-la.</small>
+      </form>
+    </main>
+  )
 }
 
 export default App

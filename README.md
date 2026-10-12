@@ -199,6 +199,7 @@ Esta demonstração ainda não tem autenticação e não deve ser exposta public
 | Método | Caminho | Resultado |
 | --- | --- | --- |
 | `GET` | `/health` | Confirma que a API responde. |
+| `GET` | `/auth/check` | Valida o token de acesso ao dashboard. |
 | `GET` | `/events` | Lista os eventos recebidos, por ordem cronológica. |
 | `POST` | `/events` | Valida e guarda um evento; responde com `201 Created`. |
 | `GET` | `/alerts` | Lista alertas persistidos, incluindo a hora da deteção. |
@@ -270,6 +271,22 @@ O browser só permite chamadas locais à API na origem de desenvolvimento do
 Vite. Para outro domínio, configura `CORS_ALLOWED_ORIGINS` no backend com uma
 lista separada por vírgulas de origens explicitamente permitidas. CORS não é
 autenticação nem substitui proteger uma API pública.
+
+### Proteção da API
+
+Em desenvolvimento local, a API não exige token por omissão. Antes de qualquer
+exposição pública, define `APP_ENV=production` e guarda um token aleatório,
+forte e privado em `SENTINELAI_API_TOKEN` no gestor de segredos do serviço de
+hospedagem. Em produção, a API falha de forma segura e recusa pedidos protegidos
+se esse segredo não estiver configurado. `/health` permanece público para os
+controlos de saúde do alojamento.
+
+O dashboard pede o token ao operador quando necessário, envia-o como Bearer e
+mantém-no só na memória da página (não usa localStorage). Usa HTTPS e restringe
+`CORS_ALLOWED_ORIGINS` ao domínio do dashboard. Este mecanismo é uma proteção
+simples para uma demonstração privada com poucos operadores, não substitui
+autenticação de utilizadores, limitação de pedidos ou monitorização numa
+instalação pública de produção.
 
 ### Assistente opcional Gemini
 

@@ -1,10 +1,12 @@
 """Endpoints HTTP da API inicial do SentinelAI."""
 
 import os
+import hmac
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from .database import get_db
@@ -30,6 +32,31 @@ app = FastAPI(
     version="0.3.0",
 )
 
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def require_api_access(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> None:
+    """Fail closed in production; optionally enforce a shared operator token."""
+
+    expected = os.getenv("SENTINELAI_API_TOKEN", "").strip()
+    production = os.getenv("APP_ENV", "development").strip().lower() == "production"
+    if not expected:
+        if production:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="A API não está configurada com um token de acesso.",
+            )
+        return
+    supplied = credentials.credentials if credentials else ""
+    if not supplied or not hmac.compare_digest(supplied, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de acesso inválido ou em falta.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
 allowed_origins = os.getenv("CORS_ALLOWED_ORIGINS")
 if allowed_origins:
     cors_origins = [origin.strip() for origin in allowed_origins.split(",") if origin.strip()]
@@ -40,7 +67,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_methods=["GET", "POST"],
-    allow_headers=["Accept", "Content-Type"],
+    allow_headers=["Accept", "Authorization", "Content-Type"],
 )
 
 @app.get("/health")
@@ -50,8 +77,18 @@ def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/auth/check", dependencies=[Depends(require_api_access)])
+def check_api_access() -> dict[str, str]:
+    """Validates the dashboard's in-memory bearer token."""
+
+    return {"status": "authorized"}
+
+
 @app.get("/events", response_model=list[AuthenticationEventSchema])
-def get_events(session: Session = Depends(get_db)) -> list[AuthenticationEvent]:
+def get_events(
+    session: Session = Depends(get_db),
+    _access: None = Depends(require_api_access),
+) -> list[AuthenticationEvent]:
     """Devolve os eventos guardados, por ordem cronológica."""
 
     return [event_from_model(row) for row in list_events(session)]
@@ -65,6 +102,7 @@ def get_events(session: Session = Depends(get_db)) -> list[AuthenticationEvent]:
 def create_event(
     event: AuthenticationEventSchema,
     session: Session = Depends(get_db),
+    _access: None = Depends(require_api_access),
 ) -> AuthenticationEvent:
     """Valida e guarda um evento e atualiza os alertas detetados."""
 
@@ -74,7 +112,10 @@ def create_event(
 
 
 @app.get("/alerts", response_model=list[SecurityAlertSchema])
-def get_alerts(session: Session = Depends(get_db)) -> list[SecurityAlertSchema]:
+def get_alerts(
+    session: Session = Depends(get_db),
+    _access: None = Depends(require_api_access),
+) -> list[SecurityAlertSchema]:
     """Devolve os alertas persistidos, incluindo quando foram detetados."""
 
     return [SecurityAlertSchema.model_validate(row) for row in list_alerts(session)]
@@ -84,6 +125,7 @@ def get_alerts(session: Session = Depends(get_db)) -> list[SecurityAlertSchema]:
 async def ask_assistant(
     request: AssistantRequest,
     session: Session = Depends(get_db),
+    _access: None = Depends(require_api_access),
 ) -> AssistantResponse:
     """Answers using aggregate counts only; provider is opt-in via server env."""
 

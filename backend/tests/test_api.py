@@ -53,6 +53,30 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
+    def test_protected_endpoints_require_configured_token(self) -> None:
+        with patch.dict("os.environ", {"APP_ENV": "development", "SENTINELAI_API_TOKEN": "sentinel-test-token"}):
+            unauthorized = self.request("GET", "/events")
+            authorized = self.request(
+                "GET",
+                "/events",
+                headers={"Authorization": "Bearer sentinel-test-token"},
+            )
+            auth_check = self.request(
+                "GET",
+                "/auth/check",
+                headers={"Authorization": "Bearer sentinel-test-token"},
+            )
+
+        self.assertEqual(unauthorized.status_code, 401)
+        self.assertEqual(authorized.status_code, 200)
+        self.assertEqual(auth_check.json(), {"status": "authorized"})
+
+    def test_production_fails_closed_when_token_is_missing(self) -> None:
+        with patch.dict("os.environ", {"APP_ENV": "production"}, clear=True):
+            response = self.request("GET", "/events")
+
+        self.assertEqual(response.status_code, 503)
+
     def test_local_frontend_origin_can_call_api(self) -> None:
         response = self.request(
             "GET",
