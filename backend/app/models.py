@@ -12,6 +12,7 @@ class AuthenticationEventModel(Base):
     __tablename__ = "authentication_events"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    ingestion_key: Mapped[str | None] = mapped_column(String(128), unique=True, index=True, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     ip_address: Mapped[str] = mapped_column(String(45), index=True)
     username: Mapped[str] = mapped_column(String(255))

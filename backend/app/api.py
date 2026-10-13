@@ -5,7 +5,7 @@ import hmac
 from typing import Literal
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from .assistant import GeminiRequestError, answer_question
 from .detection import AuthenticationEvent
 from .limits import ApiLimitsMiddleware, TrafficLimiter
 from .repositories import (
+    EventKeyConflict,
     count_alerts,
     count_events,
     event_from_model,
@@ -33,7 +34,7 @@ from .schemas import (
 app = FastAPI(
     title="SentinelAI API",
     description="API educativa para eventos e alertas de autenticação suspeita.",
-    version="0.4.0",
+    version="0.5.0",
 )
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -60,6 +61,17 @@ def require_api_access(
             detail="Token de acesso inválido ou em falta.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+def require_ingestion_access(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> None:
+    """An optional write-only collector token; operator tokens retain compatibility."""
+    expected = os.getenv("SENTINELAI_INGEST_TOKEN", "").strip()
+    supplied = credentials.credentials if credentials else ""
+    if expected and supplied and hmac.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8")):
+        return
+    require_api_access(credentials)
 
 allowed_origins = os.getenv("CORS_ALLOWED_ORIGINS")
 if allowed_origins:
@@ -116,13 +128,23 @@ def get_events(
 )
 def create_event(
     event: AuthenticationEventSchema,
+    response: Response,
     session: Session = Depends(get_db),
-    _access: None = Depends(require_api_access),
+    _access: None = Depends(require_ingestion_access),
+    idempotency_key: str | None = Header(default=None, min_length=16, max_length=128,
+                                        pattern=r"^[a-zA-Z0-9_-]+$"),
 ) -> AuthenticationEvent:
     """Valida e guarda um evento e atualiza os alertas detetados."""
 
     validated_event = event.to_detection_event()
-    saved = save_event_and_new_alerts(session, validated_event)
+    try:
+        saved, replayed = save_event_and_new_alerts(session, validated_event, idempotency_key)
+    except EventKeyConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if replayed:
+        response.status_code = status.HTTP_200_OK
+    if idempotency_key is not None:
+        response.headers["Idempotency-Key"] = idempotency_key
     return event_from_model(saved)
 
 

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .detection import AuthenticationEvent, SecurityAlert, detect_failed_login_bursts
@@ -47,12 +48,46 @@ def count_alerts(session: Session) -> int:
     return session.scalar(select(func.count()).select_from(SecurityAlertModel)) or 0
 
 
+class EventKeyConflict(ValueError):
+    """An ingestion key was already used for a different authentication event."""
+
+
 def save_event_and_new_alerts(
-    session: Session, event: AuthenticationEvent
+    session: Session, event: AuthenticationEvent, ingestion_key: str | None = None,
+) -> tuple[AuthenticationEventModel, bool]:
+    """Return (row, replayed); a unique key makes retries safe across restarts."""
+
+    def existing_event() -> AuthenticationEventModel | None:
+        if ingestion_key is None:
+            return None
+        row = session.scalar(select(AuthenticationEventModel).where(
+            AuthenticationEventModel.ingestion_key == ingestion_key,
+        ))
+        if row is not None and event_from_model(row) != event:
+            raise EventKeyConflict("A chave de ingestão já foi usada para outro evento.")
+        return row
+
+    existing = existing_event()
+    if existing is not None:
+        return existing, True
+    try:
+        return _insert_event_and_new_alerts(session, event, ingestion_key), False
+    except IntegrityError:
+        session.rollback()
+        # Another request may have committed this key after our initial lookup.
+        existing = existing_event()
+        if existing is not None:
+            return existing, True
+        raise
+
+
+def _insert_event_and_new_alerts(
+    session: Session, event: AuthenticationEvent, ingestion_key: str | None,
 ) -> AuthenticationEventModel:
     """Guarda o evento e quaisquer novos alertas numa única transação."""
 
     row = AuthenticationEventModel(
+        ingestion_key=ingestion_key,
         timestamp=event.timestamp,
         ip_address=event.ip_address,
         username=event.username,

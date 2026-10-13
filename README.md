@@ -54,6 +54,11 @@ de execução do Windows.
 
 ## Estado atual
 
+Marco de integração web: [coletor de logins no backend](docs/web-integration.md),
+fila local limitada com reenvio, ingestão idempotente e token separado de escrita.
+A aplicação tem de ligar o hook à sua autenticação; não é recolha automática de
+qualquer site nem um lançamento empresarial. A demo Cloudflare não mudou.
+
 Concluído na Fase 1:
 
 - leitura de eventos a partir de JSON;
@@ -275,6 +280,12 @@ base de dados. Uma chave única evita guardar repetidamente a mesma sequência.
 Em desenvolvimento local, o token é opcional. Antes de exposição pública,
 configura `APP_ENV=production` e um `SENTINELAI_API_TOKEN` forte no ambiente do
 servidor; este token partilhado continua a ser apenas uma proteção de demonstração.
+
+Integrações web podem usar `Idempotency-Key` (16–128 caracteres alfanuméricos,
+`_` ou `-`) para repetir um envio sem duplicar o evento. Repetições iguais
+recebem `200`; a mesma chave com outro conteúdo recebe `409`. Sem esse header,
+cada pedido continua a criar um evento. O [guia web](docs/web-integration.md)
+explica o coletor e o token opcional `SENTINELAI_INGEST_TOKEN`, apenas de escrita.
 
 ### Endpoints disponíveis
 

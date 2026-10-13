@@ -23,6 +23,11 @@
 
 ## Limitações antes de produção
 
+Primeiro marco web implementado: hook de autenticação server-side em Python,
+fila limitada/persistente, worker com reenvio, chave de ingestão idempotente e
+token opcional de escrita separado do operador. [Integração e limites](web-integration.md).
+Testado com dados fictícios; ainda não ligado a uma aplicação real de uma empresa.
+
 A demo pública tem um build separado, com dados fictícios e assistente local,
 testes de ausência de chamadas externas e headers restritivos. A configuração
 Cloudflare está no repo; a [demo está publicada](https://sentinelai-demo.tiagfari.workers.dev/)
