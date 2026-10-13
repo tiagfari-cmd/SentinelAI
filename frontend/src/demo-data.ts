@@ -16,6 +16,11 @@ export const demoEvents: AuthenticationEvent[] = [
 
 export const demoAlerts: SecurityAlert[] = [
   {
+    id: 1,
+    review_status: 'open',
+    review_note: '',
+    review_revision: 0,
+    reviewed_at: null,
     ip_address: '203.0.113.42',
     first_failure: minutesAgo(1.05),
     last_failure: minutesAgo(0.45),

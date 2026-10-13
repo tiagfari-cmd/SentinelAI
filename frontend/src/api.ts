@@ -1,7 +1,8 @@
-import type { AuthenticationEvent, DashboardData, SecurityAlert } from './types'
+import type { AlertReviewRequest, AuthenticationEvent, DashboardData, SecurityAlert } from './types'
 import { demoData } from './demo-data'
 import { isPublicDemo } from './deployment'
 import { demoReply } from './demo-assistant'
+import { simulateReview } from './alert-review'
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '/api')
 let accessToken = ''
@@ -47,8 +48,8 @@ async function fetchPage<T>(path: string): Promise<{ rows: T[]; total: number }>
   return { rows, total: Number.isFinite(parsedTotal) ? Math.max(rows.length, parsedTotal) : rows.length }
 }
 
-export async function askAssistant(message: string): Promise<{ answer: string; provider: 'mock' | 'gemini' | 'local' }> {
-  if (isPublicDemo) return { answer: demoReply(message), provider: 'local' }
+export async function askAssistant(message: string, language: 'pt' | 'en' = 'pt'): Promise<{ answer: string; provider: 'mock' | 'gemini' | 'local' }> {
+  if (isPublicDemo) return { answer: demoReply(message, language), provider: 'local' }
   const response = await fetch(`${apiBase}/assistant`, {
     method: 'POST',
     headers: headers({ Accept: 'application/json', 'Content-Type': 'application/json' }),
@@ -71,6 +72,20 @@ export async function verifyAccessToken(token: string): Promise<void> {
   })
   if (response.status === 401) throw new UnauthorizedError('Token incorreto. Confirma o token configurado no backend.')
   if (!response.ok) throw new Error(`Não foi possível validar o acesso (HTTP ${response.status}).`)
+}
+
+export async function saveAlertReview(alert: SecurityAlert, request: AlertReviewRequest, localOnly = false): Promise<SecurityAlert> {
+  if (isPublicDemo || localOnly) return simulateReview(alert, request)
+  const response = await fetch(`${apiBase}/alerts/${alert.id}/review`, {
+    method: 'POST', headers: headers({ Accept: 'application/json', 'Content-Type': 'application/json' }),
+    body: JSON.stringify(request), signal: AbortSignal.timeout(5000),
+  })
+  if (response.status === 401) throw new UnauthorizedError()
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { detail?: unknown } | null
+    throw new ApiResponseError(typeof body?.detail === 'string' ? body.detail : `Não foi possível guardar (HTTP ${response.status}).`)
+  }
+  return response.json() as Promise<SecurityAlert>
 }
 
 export async function loadDashboardData(): Promise<DashboardData> {

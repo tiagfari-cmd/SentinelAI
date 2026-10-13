@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, JSON, String
+from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -31,4 +31,22 @@ class SecurityAlertModel(Base):
     failure_count: Mapped[int] = mapped_column(Integer)
     usernames: Mapped[list[str]] = mapped_column(JSON)
     message: Mapped[str] = mapped_column(String(1000))
+    review_status: Mapped[str] = mapped_column(String(20), default="open", server_default="open", index=True)
+    review_note: Mapped[str] = mapped_column(String(1000), default="", server_default="")
+    review_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AlertReviewModel(Base):
+    """Append-only through the API, not a tamper-proof or personally attributed audit."""
+
+    __tablename__ = "alert_reviews"
+    __table_args__ = (UniqueConstraint("alert_id", "revision", name="uq_alert_review_revision"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    alert_id: Mapped[int] = mapped_column(ForeignKey("security_alerts.id"), index=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    review_status: Mapped[str] = mapped_column(String(20))
+    review_note: Mapped[str] = mapped_column(String(1000))
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

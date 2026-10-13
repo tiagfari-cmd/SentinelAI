@@ -5,7 +5,7 @@ import hmac
 from typing import Literal
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -16,11 +16,15 @@ from .detection import AuthenticationEvent
 from .limits import ApiLimitsMiddleware, TrafficLimiter
 from .repositories import (
     EventKeyConflict,
+    AlertNotFound,
+    AlertReviewConflict,
     count_alerts,
     count_events,
     event_from_model,
     list_alerts,
     list_events,
+    list_alert_reviews,
+    review_alert,
     save_event_and_new_alerts,
 )
 from .schemas import (
@@ -28,13 +32,15 @@ from .schemas import (
     AssistantResponse,
     AuthenticationEventSchema,
     SecurityAlertSchema,
+    AlertReviewRequest,
+    AlertReviewSchema,
 )
 
 
 app = FastAPI(
     title="SentinelAI API",
     description="API educativa para eventos e alertas de autenticação suspeita.",
-    version="0.5.0",
+    version="0.6.0",
 )
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -163,6 +169,39 @@ def get_alerts(
     return [SecurityAlertSchema.model_validate(row) for row in list_alerts(
         session, limit=limit, offset=offset, descending=order == "desc",
     )]
+
+
+@app.post("/alerts/{alert_id}/review", response_model=SecurityAlertSchema)
+def update_alert_review(
+    request: AlertReviewRequest,
+    alert_id: int = Path(ge=1),
+    session: Session = Depends(get_db),
+    _access: None = Depends(require_api_access),
+) -> SecurityAlertSchema:
+    try:
+        row = review_alert(session, alert_id, **request.model_dump())
+    except AlertNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except AlertReviewConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return SecurityAlertSchema.model_validate(row)
+
+
+@app.get("/alerts/{alert_id}/reviews", response_model=list[AlertReviewSchema])
+def get_alert_reviews(
+    response: Response,
+    alert_id: int = Path(ge=1),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, le=100000),
+    session: Session = Depends(get_db),
+    _access: None = Depends(require_api_access),
+) -> list[AlertReviewSchema]:
+    try:
+        rows, total = list_alert_reviews(session, alert_id, limit=limit, offset=offset)
+    except AlertNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    response.headers["X-Total-Count"] = str(total)
+    return [AlertReviewSchema.model_validate(row) for row in rows]
 
 
 @app.post("/assistant", response_model=AssistantResponse)

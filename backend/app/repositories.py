@@ -3,12 +3,12 @@
 from datetime import datetime, timezone
 from hashlib import sha256
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .detection import AuthenticationEvent, SecurityAlert, detect_failed_login_bursts
-from .models import AuthenticationEventModel, SecurityAlertModel
+from .models import AlertReviewModel, AuthenticationEventModel, SecurityAlertModel
 
 
 def as_utc(value: datetime) -> datetime:
@@ -149,4 +149,42 @@ def list_alerts(
     if limit is not None:
         statement = statement.limit(limit)
     return list(session.scalars(statement))
+
+
+class AlertNotFound(ValueError):
+    pass
+
+
+class AlertReviewConflict(ValueError):
+    pass
+
+
+def review_alert(session: Session, alert_id: int, *, review_status: str,
+                 review_note: str, expected_revision: int) -> SecurityAlertModel:
+    """Atomically save state plus history, refusing stale browser edits."""
+    reviewed_at = datetime.now(timezone.utc)
+    changed = session.execute(update(SecurityAlertModel).where(
+        SecurityAlertModel.id == alert_id,
+        SecurityAlertModel.review_revision == expected_revision,
+    ).values(review_status=review_status, review_note=review_note,
+             reviewed_at=reviewed_at, review_revision=expected_revision + 1))
+    if changed.rowcount != 1:
+        session.rollback()
+        if session.get(SecurityAlertModel, alert_id) is None:
+            raise AlertNotFound("Alerta não encontrado.")
+        raise AlertReviewConflict("O alerta foi alterado. Atualiza os detalhes antes de guardar novamente.")
+    session.add(AlertReviewModel(alert_id=alert_id, revision=expected_revision + 1,
+                                review_status=review_status, review_note=review_note,
+                                reviewed_at=reviewed_at))
+    session.commit()
+    return session.get(SecurityAlertModel, alert_id)
+
+
+def list_alert_reviews(session: Session, alert_id: int, *, limit: int, offset: int):
+    if session.get(SecurityAlertModel, alert_id) is None:
+        raise AlertNotFound("Alerta não encontrado.")
+    query = select(AlertReviewModel).where(AlertReviewModel.alert_id == alert_id)
+    rows = list(session.scalars(query.order_by(AlertReviewModel.revision.desc()).limit(limit).offset(offset)))
+    total = session.scalar(select(func.count()).select_from(AlertReviewModel).where(AlertReviewModel.alert_id == alert_id)) or 0
+    return rows, total
 
