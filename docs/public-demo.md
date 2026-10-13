@@ -1,5 +1,8 @@
 # Demo pública e instalação completa
 
+**Abrir:** [demo gratuita](https://sentinelai-demo.tiagfari.workers.dev/).
+Publicada em 13 de outubro de 2026. Não é necessário criar conta ou fornecer chave.
+
 | Build | Dados e assistente | Publicação |
 | --- | --- | --- |
 | `npm run build` → `frontend/dist` | API do operador; Gemini opcional no servidor | Docker local ou ambiente privado protegido |
@@ -20,11 +23,16 @@ pedidos HTTP e pode manter logs de acesso segundo as suas políticas.
 Na pasta `frontend`:
 
 ```powershell
-npm.cmd ci
+npm.cmd install
 npm.cmd test
 npm.cmd run build:demo
 npm.cmd run preview -- --outDir dist-demo --host 127.0.0.1 --port 4173
 ```
+
+`npm ci` continua a ser usado em checkouts novos do CI para respeitar o lockfile.
+Remove e recria `node_modules`: evita usá-lo numa pasta sincronizada com OneDrive
+ou com servidores de desenvolvimento em execução. Não alteres a política de
+scripts do Windows para executar estes comandos.
 
 Verifica os indicadores (8 eventos fictícios, 1 alerta), pesquisa/filtros,
 exportação JSON, detalhe de alerta e respostas locais do assistente. Não é uma
@@ -67,8 +75,9 @@ exclusivos da demo: não devem bloquear chamadas do dashboard completo.
 - Código e instruções de instalação são acessíveis no GitHub.
 - Atualizações passam pela `main` protegida e CI; rollback no fornecedor.
 
-**Estado:** configuração preparada; só anunciar URL depois de confirmar deploy.
-A API completa continua local.
+**Estado:** demo estática publicada e HTTPS/headers verificados em 13 de outubro
+de 2026. A API completa continua local. O deploy foi efetuado pela CLI autenticada
+do proprietário; não está configurado deploy automático a partir do GitHub.
 
 ## Usar com eventos próprios
 

@@ -25,7 +25,8 @@
 
 A demo pública tem um build separado, com dados fictícios e assistente local,
 testes de ausência de chamadas externas e headers restritivos. A configuração
-Cloudflare está no repo; o deploy e a URL ainda precisam de confirmação.
+Cloudflare está no repo; a [demo está publicada](https://sentinelai-demo.tiagfari.workers.dev/)
+e foi validada com HTTPS em 13 de outubro de 2026.
 Isto não publica a API nem implementa um SaaS com logs reais.
 
 1. Substituir o token partilhado por autenticação individual e autorização com
@@ -46,6 +47,7 @@ Isto não publica a API nem implementa um SaaS com logs reais.
 
 O protótipo é demonstrável localmente com eventos fictícios, testes reproduzíveis
 e documentação transparente. Isso não significa que seja seguro para processar
-logs reais nem que esteja publicado na Internet. Uma publicação exige escolher
-um fornecedor, configurar segredos e uma base de dados, e efetuar validação do
-ambiente alojado.
+logs reais de vários utilizadores. A demo estática pública não recebe logs nem
+usa segredos ou base de dados. Publicar a API completa é um marco distinto e
+exige autenticação individual, isolamento dos dados, alojamento, segredos,
+base de dados e validação operacional.
