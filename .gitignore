@@ -218,3 +218,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# SentinelAI local and frontend files
+.env
+*.db
+*.sqlite
+*.sqlite3
+node_modules/
+frontend/dist/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
