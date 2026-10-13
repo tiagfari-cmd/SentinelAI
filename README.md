@@ -9,6 +9,9 @@ abaixo. A [arquitetura](docs/architecture.md) explica o percurso dos dados e a
 [roadmap](docs/roadmap.md) distingue as funcionalidades atuais das que ainda
 faltam antes de produção.
 
+Consulta também a [política de segurança](SECURITY.md): um repo público permite
+ver e usar o código, mas não concede acesso de escrita ao projeto original.
+
 > Um alerta indica atividade suspeita que merece investigação. Não prova que
 > ocorreu um ataque.
 
@@ -377,7 +380,7 @@ ou confidenciais. O modo mock continua disponível sem chave.
 ```powershell
 $env:ASSISTANT_PROVIDER = "gemini"
 $env:GEMINI_API_KEY = "a-tua-chave-local"
-\.venv\Scripts\python.exe -m uvicorn backend.app.api:app --reload
+.\.venv\Scripts\python.exe -m uvicorn backend.app.api:app --reload
 ```
 
 Não coloques a chave num ficheiro versionado, numa variável `VITE_*` ou em
