@@ -23,6 +23,11 @@
 
 ## Limitações antes de produção
 
+A demo pública tem um build separado, com dados fictícios e assistente local,
+testes de ausência de chamadas externas e headers restritivos. A configuração
+Cloudflare está no repo; o deploy e a URL ainda precisam de confirmação.
+Isto não publica a API nem implementa um SaaS com logs reais.
+
 1. Substituir o token partilhado por autenticação individual e autorização com
    sessões seguras.
 2. Substituir os limites por processo por limitação partilhada no ponto de entrada

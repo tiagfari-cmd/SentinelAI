@@ -8,6 +8,7 @@ import {
 import { Assistant } from './Assistant'
 import { loadDashboardData, setAccessToken, UnauthorizedError, verifyAccessToken } from './api'
 import type { AuthenticationEvent, DashboardData, SecurityAlert } from './types'
+import { isPublicDemo } from './deployment'
 import './App.css'
 
 const ActivityChart = lazy(() => import('./ActivityChart'))
@@ -132,7 +133,7 @@ function App() {
     <div className="app-shell">
       <aside className={`sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
         <div className="brand"><span className="brand-mark"><Shield size={19} /></span><span>Sentinel<span className="brand-accent">AI</span></span></div>
-        <div className="workspace-card"><div className="workspace-icon"><Server size={17} /></div><div><strong>Ambiente local</strong><small>Monitorização educativa</small></div><span className="live-dot" /></div>
+        <div className="workspace-card"><div className="workspace-icon"><Server size={17} /></div><div><strong>{isPublicDemo ? 'Demo pública' : 'Ambiente local'}</strong><small>Monitorização educativa</small></div><span className="live-dot" /></div>
         <nav aria-label="Navegação principal">{nav}</nav>
         <div className="sidebar-bottom"><div className="simulated-mark"><Activity size={18} /><span>Dados para demonstração</span></div><p>Não ligado a sistemas reais</p><div className="profile"><span className="avatar">SA</span><div><strong>Analista de segurança</strong><small>Perfil de demonstração</small></div></div></div>
       </aside>
@@ -152,7 +153,8 @@ function App() {
             <div className="heading-actions"><label className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Pesquisar IP ou utilizador" /></label><button className="button secondary" onClick={exportEvents}><Download size={15} /> Exportar</button></div>
           </div>
 
-          {data.source === 'demo' && <div className="demo-banner"><CircleHelp size={16} /><span>Estás a ver dados fictícios. Inicia a API local para carregar eventos guardados na base de dados.</span></div>}
+          {data.source === 'demo' && <div className="demo-banner"><CircleHelp size={16} /><span>{isPublicDemo ? 'Demo interativa gratuita: dados fictícios, sem recolha de logs e sem ligação à API ou ao Gemini. Pesquisa, explora os alertas e experimenta o assistente local.' : 'Estás a ver dados fictícios. Inicia a API local para carregar eventos guardados na base de dados.'}</span></div>}
+          {isPublicDemo && <section className="public-demo-info" aria-label="Usar o SentinelAI"><div><strong>Queres usar com os teus próprios eventos?</strong><p>Instala gratuitamente no teu computador. O código é aberto, sob licença MIT. Esta página é uma demonstração, não um serviço de monitorização.</p></div><a className="button secondary" href="https://github.com/tiagfari-cmd/SentinelAI#executar-com-docker-compose" target="_blank" rel="noopener noreferrer">Código e instalação <ArrowUpRight size={15} /></a></section>}
           {dataError && <div className="demo-banner" role="alert"><AlertTriangle size={16} /><span>{dataError} Os dados abaixo podem estar desatualizados; não foram substituídos por uma amostra fictícia.</span></div>}
           {data.source === 'api' && ((data.eventTotal ?? data.events.length) > data.events.length || (data.alertTotal ?? data.alerts.length) > data.alerts.length) && <div className="demo-banner neutral"><CircleHelp size={16} /><span>Vista limitada aos registos mais recentes: {data.events.length} de {data.eventTotal} eventos e {data.alerts.length} de {data.alertTotal} alertas. Indicadores, pesquisa e exportação referem-se apenas aos dados carregados. Usa a paginação da API para consultar o restante histórico.</span></div>}
           {!dataError && data.source === 'api' && data.events.length === 0 && <div className="demo-banner neutral"><Check size={16} /><span>API ligada. Ainda não existem eventos guardados. Envia um evento em <code>POST /events</code> para começar.</span></div>}

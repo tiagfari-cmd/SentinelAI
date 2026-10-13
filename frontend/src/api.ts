@@ -1,5 +1,7 @@
 import type { AuthenticationEvent, DashboardData, SecurityAlert } from './types'
 import { demoData } from './demo-data'
+import { isPublicDemo } from './deployment'
+import { demoReply } from './demo-assistant'
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '/api')
 let accessToken = ''
@@ -19,7 +21,7 @@ export class ApiResponseError extends Error {
 }
 
 export function setAccessToken(token: string) {
-  accessToken = token
+  accessToken = isPublicDemo ? '' : token
 }
 
 function headers(extra: Record<string, string> = {}): Record<string, string> {
@@ -45,7 +47,8 @@ async function fetchPage<T>(path: string): Promise<{ rows: T[]; total: number }>
   return { rows, total: Number.isFinite(parsedTotal) ? Math.max(rows.length, parsedTotal) : rows.length }
 }
 
-export async function askAssistant(message: string): Promise<{ answer: string; provider: 'mock' | 'gemini' }> {
+export async function askAssistant(message: string): Promise<{ answer: string; provider: 'mock' | 'gemini' | 'local' }> {
+  if (isPublicDemo) return { answer: demoReply(message), provider: 'local' }
   const response = await fetch(`${apiBase}/assistant`, {
     method: 'POST',
     headers: headers({ Accept: 'application/json', 'Content-Type': 'application/json' }),
@@ -61,6 +64,7 @@ export async function askAssistant(message: string): Promise<{ answer: string; p
 }
 
 export async function verifyAccessToken(token: string): Promise<void> {
+  if (isPublicDemo) throw new Error('A demo pública não aceita tokens nem liga a uma API.')
   const response = await fetch(`${apiBase}/auth/check`, {
     headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(5000),
@@ -70,6 +74,7 @@ export async function verifyAccessToken(token: string): Promise<void> {
 }
 
 export async function loadDashboardData(): Promise<DashboardData> {
+  if (isPublicDemo) return { ...structuredClone(demoData), source: 'demo' }
   try {
     const [events, alerts] = await Promise.all([
       fetchPage<AuthenticationEvent>('/events?limit=500&order=desc'),

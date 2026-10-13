@@ -23,6 +23,15 @@ premium. Uma eventual versão SaaS será uma decisão futura, não um requisito 
 usar este projeto. Hospedagem e provedores LLM podem ter custos ou quotas próprios;
 o modo mock não necessita de uma chave nem faz chamadas externas.
 
+### Demo pública, sem expor a API
+
+Existe um build específico para um site público: `npm run build:demo` na pasta
+`frontend`. Usa exclusivamente dados fictícios e um assistente local com
+respostas pré-definidas, sem chamadas ao backend ou ao Gemini. Inclui acesso às
+instruções de instalação gratuita. Consulta o [guia de publicação](docs/public-demo.md)
+para configuração Cloudflare, validação e limitações. O build preparado não
+significa que já exista uma URL publicada; a API completa continua local.
+
 ## Estado atual
 
 Concluído na Fase 1:
@@ -95,10 +104,12 @@ branch `feature/phase-3-database`. A Fase 4 está publicada em
 `feature/phase-4-dashboard`, baseada na Fase 3.
 
 O GitHub Actions executa os testes do backend, verifica build e lint do frontend
+e os testes de separação entre demo pública e instalação completa,
 constrói as imagens Docker e audita dependências Python e JavaScript em cada push
 e pull request. A auditoria de dependências também corre semanalmente para detetar
 avisos publicados depois de uma alteração ao código. O workflow só tem permissão
-de leitura e não usa segredos nem faz deploy automático.
+de leitura e não usa segredos nem faz deploy automático. O CI constrói também o
+artefacto público separado, sem configurar credenciais de alojamento.
 
 Na Fase 2, acrescentámos endpoints HTTP e validação de pedidos com
 Pydantic. Na Fase 3, os eventos e alertas passaram a ser guardados em tabelas;

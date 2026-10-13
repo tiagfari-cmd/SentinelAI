@@ -226,6 +226,10 @@ __marimo__/
 *.sqlite3
 node_modules/
 frontend/dist/
+frontend/dist-demo/
+.wrangler/
+.env.*
+!.env.example
 .idea/
 .vscode/
 .DS_Store
