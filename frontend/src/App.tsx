@@ -29,6 +29,7 @@ function App() {
   const [section, setSection] = useState<Section>('overview')
   const [data, setData] = useState<DashboardData>(emptyData)
   const [loading, setLoading] = useState(true)
+  const [dataError, setDataError] = useState('')
   const [query, setQuery] = useState('')
   const [eventFilter, setEventFilter] = useState<EventFilter>('all')
   const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null)
@@ -42,10 +43,13 @@ function App() {
     setLoading(true)
     try {
       setData(await loadDashboardData())
+      setDataError('')
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         setAccessToken('')
         setAccessRequired(true)
+      } else {
+        setDataError(error instanceof Error ? error.message : 'Não foi possível carregar os dados.')
       }
     } finally {
       setLoading(false)
@@ -56,7 +60,11 @@ function App() {
     let active = true
     void loadDashboardData()
       .then((initialData) => { if (active) setData(initialData) })
-      .catch((error: unknown) => { if (active && error instanceof UnauthorizedError) setAccessRequired(true) })
+      .catch((error: unknown) => {
+        if (!active) return
+        if (error instanceof UnauthorizedError) setAccessRequired(true)
+        else setDataError(error instanceof Error ? error.message : 'Não foi possível carregar os dados.')
+      })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [])
@@ -71,6 +79,7 @@ function App() {
       await verifyAccessToken(candidate)
       setAccessToken(candidate)
       setData(await loadDashboardData())
+      setDataError('')
       setAccessInput('')
       setAccessRequired(false)
     } catch (error) {
@@ -101,7 +110,7 @@ function App() {
   }
 
   function exportEvents() {
-    const file = new Blob([JSON.stringify(data.events, null, 2)], { type: 'application/json' })
+    const file = new Blob([JSON.stringify(filteredEvents, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(file)
     const link = document.createElement('a')
     link.href = url
@@ -134,7 +143,7 @@ function App() {
         <header className="topbar">
           <button className="mobile-menu icon-button" aria-label="Abrir navegação" onClick={() => setMobileNavOpen(true)}><Menu size={20} /></button>
           <div className="breadcrumbs"><Shield size={15} /><span>Workspace</span><ChevronRight size={14} /><strong>{section === 'overview' ? 'Visão geral' : section === 'alerts' ? 'Alertas' : 'Eventos'}</strong></div>
-          <div className="top-actions"><span className={`connection-pill ${data.source}`}><i />{data.source === 'api' ? 'API local' : 'Demonstração — dados fictícios'}</span><button className="icon-button" onClick={() => void refresh()} aria-label="Atualizar dados"><RefreshCw size={17} className={loading ? 'spin' : ''} /></button><button className="icon-button notification-button" aria-label="Notificações"><Bell size={17} /><i /></button><span className="top-avatar">SA</span></div>
+          <div className="top-actions"><span className={`connection-pill ${dataError ? 'demo' : data.source}`}><i />{dataError ? 'Erro na API' : data.source === 'api' ? 'API local' : 'Demonstração — dados fictícios'}</span><button className="icon-button" onClick={() => void refresh()} aria-label="Atualizar dados"><RefreshCw size={17} className={loading ? 'spin' : ''} /></button><button className="icon-button notification-button" aria-label="Notificações"><Bell size={17} /><i /></button><span className="top-avatar">SA</span></div>
         </header>
 
         <div className="content-wrap">
@@ -144,12 +153,14 @@ function App() {
           </div>
 
           {data.source === 'demo' && <div className="demo-banner"><CircleHelp size={16} /><span>Estás a ver dados fictícios. Inicia a API local para carregar eventos guardados na base de dados.</span></div>}
-          {data.source === 'api' && data.events.length === 0 && <div className="demo-banner neutral"><Check size={16} /><span>API ligada. Ainda não existem eventos guardados. Envia um evento em <code>POST /events</code> para começar.</span></div>}
+          {dataError && <div className="demo-banner" role="alert"><AlertTriangle size={16} /><span>{dataError} Os dados abaixo podem estar desatualizados; não foram substituídos por uma amostra fictícia.</span></div>}
+          {data.source === 'api' && ((data.eventTotal ?? data.events.length) > data.events.length || (data.alertTotal ?? data.alerts.length) > data.alerts.length) && <div className="demo-banner neutral"><CircleHelp size={16} /><span>Vista limitada aos registos mais recentes: {data.events.length} de {data.eventTotal} eventos e {data.alerts.length} de {data.alertTotal} alertas. Indicadores, pesquisa e exportação referem-se apenas aos dados carregados. Usa a paginação da API para consultar o restante histórico.</span></div>}
+          {!dataError && data.source === 'api' && data.events.length === 0 && <div className="demo-banner neutral"><Check size={16} /><span>API ligada. Ainda não existem eventos guardados. Envia um evento em <code>POST /events</code> para começar.</span></div>}
 
           {section === 'overview' && (
             <>
               <section className="stats-grid" aria-label="Estatísticas">
-                <StatCard icon={<Activity size={17} />} label="Eventos recebidos" value={data.events.length.toLocaleString('pt-PT')} note={data.source === 'demo' ? 'amostra fictícia' : 'na base de dados'} tone="mint" />
+                <StatCard icon={<Activity size={17} />} label="Eventos recebidos" value={data.events.length.toLocaleString('pt-PT')} note={data.source === 'demo' ? 'amostra fictícia' : 'nos dados carregados'} tone="mint" />
                 <StatCard icon={<AlertTriangle size={17} />} label="Alertas por investigar" value={data.alerts.length.toLocaleString('pt-PT')} note="regra determinística" tone="red" />
                 <StatCard icon={<Check size={17} />} label="Autenticações bem-sucedidas" value={successCount.toLocaleString('pt-PT')} note="nos eventos carregados" tone="mint" />
                 <StatCard icon={<Users size={17} />} label="IPs observados" value={monitoredIps.toLocaleString('pt-PT')} note="endereços distintos" tone="blue" />

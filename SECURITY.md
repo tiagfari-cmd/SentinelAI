@@ -26,9 +26,14 @@ Não concedas escrita ou administração a pessoas/aplicações não confiáveis
 - `/health` é público por desenho. CORS não substitui autenticação.
 - A chave Gemini fica no backend; nunca uses `VITE_*` para guardar segredos.
 - A redação de perguntas Gemini é de melhor esforço, não anonimização garantida.
+- Corpos acima de 8 KiB recebem `413`; respostas de listas têm no máximo 500
+  registos. Limites globais por processo devolvem `429` com `Retry-After`, incluindo
+  um orçamento específico para o assistente. Headers de IP não permitem evitá-los.
 
 Antes de exposição pública, exige HTTPS, autenticação individual, autorização,
-rate limiting, limites de volume, monitorização, backups e revisão do ambiente.
+limitação distribuída, limites de armazenamento, monitorização, backups e revisão
+do ambiente. Os limites atuais reiniciam com o processo e são partilhados por
+todos os operadores, não isolam utilizadores nem protegem contra DDoS.
 O token partilhado atual serve apenas para demonstração restrita.
 
 ## Reportar um problema

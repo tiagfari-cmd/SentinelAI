@@ -44,7 +44,20 @@ substitui eventos existentes.
 
 ## Captura de ecrã
 
-Para a imagem do README, inicia a aplicação com a base de dados vazia ou com a
-amostra carregada, abre o dashboard num browser a 1440 px ou mais, e guarda uma
-captura em `docs/images/dashboard.png`. Usa apenas os dados fictícios do projeto;
-não incluas tokens, emails reais nem registos operacionais.
+A [captura atual](images/dashboard.jpg) mostra a interface responsiva com os nove
+eventos e um alerta da amostra fictícia, servidos pela API local. Para a atualizar,
+abre o dashboard, confirma a origem dos dados e guarda uma captura em
+`docs/images/dashboard.jpg`. Não incluas tokens, emails reais nem registos
+operacionais.
+
+## Verificar os limites
+
+Na documentação da API, usa `GET /events` com `limit=2` e `order=desc`: a resposta
+deve ter dois eventos e o header `X-Total-Count: 9` se usaste apenas a amostra.
+Um `limit=501` deve devolver `422`. Não testes os limites de tráfego martelando
+um serviço público: os testes isolados verificam `429`, `Retry-After`, corpos
+em partes, concorrência e rejeição de pedidos antes de chamar o provedor LLM.
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s backend\tests -v
+```

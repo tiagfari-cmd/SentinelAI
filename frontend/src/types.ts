@@ -19,4 +19,6 @@ export type DashboardData = {
   events: AuthenticationEvent[]
   alerts: SecurityAlert[]
   source: 'api' | 'demo'
+  eventTotal?: number
+  alertTotal?: number
 }
