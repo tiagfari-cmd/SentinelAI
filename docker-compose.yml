@@ -10,6 +10,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       SENTINELAI_API_TOKEN: ${SENTINELAI_API_TOKEN:-}
+      SENTINELAI_INGEST_TOKEN: ${SENTINELAI_INGEST_TOKEN:-}
     ports:
       - "127.0.0.1:8001:8000"
     volumes:

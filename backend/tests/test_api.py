@@ -214,6 +214,90 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertEqual(self.request("GET", "/events").json(), [])
 
+    def test_ingestion_retry_is_idempotent_and_conflicts_are_rejected(self) -> None:
+        event = {"timestamp": "2026-10-12T09:00:00Z", "ip_address": "203.0.113.42",
+                 "username": "ana", "outcome": "failed"}
+        headers = {"Idempotency-Key": "0123456789abcdef0123456789abcdef"}
+        first = self.request("POST", "/events", json=event, headers=headers)
+        retry = self.request("POST", "/events", json={**event, "timestamp": "2026-10-12T10:00:00+01:00"}, headers=headers)
+        conflict = self.request("POST", "/events", json={**event, "outcome": "success"}, headers=headers)
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(retry.status_code, 200)
+        self.assertEqual(first.json(), retry.json())
+        self.assertEqual(retry.headers["idempotency-key"], headers["Idempotency-Key"])
+        self.assertEqual(conflict.status_code, 409)
+        self.assertEqual(len(self.request("GET", "/events").json()), 1)
+
+    def test_distinct_login_keys_preserve_distinct_attempts(self) -> None:
+        event = {"timestamp": "2026-10-12T09:00:00Z", "ip_address": "203.0.113.42",
+                 "username": "ana", "outcome": "failed"}
+        for index in range(5):
+            headers = {"Idempotency-Key": f"web-login-event-{index:02d}"}
+            self.assertEqual(self.request("POST", "/events", json=event, headers=headers).status_code, 201)
+            self.assertEqual(self.request("POST", "/events", json=event, headers=headers).status_code, 200)
+        self.assertEqual(len(self.request("GET", "/events").json()), 5)
+        self.assertEqual(len(self.request("GET", "/alerts").json()), 1)
+
+    def test_invalid_ingestion_keys_are_rejected_before_storage(self) -> None:
+        event = {"timestamp": "2026-10-12T09:00:00Z", "ip_address": "203.0.113.42",
+                 "username": "ana", "outcome": "success"}
+        for key in ("short", "a" * 129, "invalid-key-with spaces"):
+            self.assertEqual(self.request("POST", "/events", json=event,
+                                          headers={"Idempotency-Key": key}).status_code, 422)
+        self.assertEqual(self.request("GET", "/events").json(), [])
+
+    def test_web_collector_to_api_survives_lost_ack_and_creates_one_alert(self) -> None:
+        from datetime import timezone
+        from io import BytesIO
+        from pathlib import Path
+        import tempfile
+        from urllib.error import URLError
+        from collectors.web_auth import WebAuthCollector
+
+        class Reply(BytesIO):
+            def __init__(self, response):
+                super().__init__(response.content)
+                self.status = response.status_code
+                self.headers = response.headers
+
+        deliveries = []
+        def deliver(req, **kwargs):
+            response = self.request("POST", "/events", content=req.data,
+                                    headers={"Idempotency-Key": req.get_header("Idempotency-key"),
+                                             "Content-Type": "application/json"})
+            deliveries.append(response.status_code)
+            if len(deliveries) == 1:
+                raise URLError("API committed but acknowledgement was lost")
+            return Reply(response)
+
+        with tempfile.TemporaryDirectory() as folder:
+            collector = WebAuthCollector(Path(folder) / "outbox.db", "http://127.0.0.1:8001")
+            with patch.object(collector._opener, "open", side_effect=deliver):
+                for second in range(5):
+                    collector.record_login(timestamp=datetime(2026, 10, 13, 9, 0, second, tzinfo=timezone.utc),
+                                           ip_address="203.0.113.42", username="web-pilot", outcome="failed")
+                self.assertEqual(collector.flush_one(now=100).state, "retry")
+                for tick in range(5):
+                    self.assertEqual(collector.flush_one(now=103 + tick).state, "delivered")
+            self.assertEqual(collector.stats(), {"pending": 0, "blocked": 0})
+        self.assertEqual(deliveries, [201, 200, 201, 201, 201, 201])
+        self.assertEqual(len(self.request("GET", "/events").json()), 5)
+        self.assertEqual(len(self.request("GET", "/alerts").json()), 1)
+
+    def test_collector_token_is_write_only_and_operator_token_remains_valid(self) -> None:
+        event = {"timestamp": "2026-10-13T09:00:00Z", "ip_address": "203.0.113.42",
+                 "username": "collector-pilot", "outcome": "success"}
+        with patch.dict("os.environ", {"APP_ENV": "production", "SENTINELAI_API_TOKEN": "operator-only",
+                                      "SENTINELAI_INGEST_TOKEN": "collector-only"}):
+            headers = {"Authorization": "Bearer collector-only"}
+            self.assertEqual(self.request("POST", "/events", json=event, headers=headers).status_code, 201)
+            for path in ("/events", "/alerts", "/auth/check"):
+                self.assertEqual(self.request("GET", path, headers=headers).status_code, 401)
+            self.assertEqual(self.request("POST", "/assistant", json={"message": "hi"}, headers=headers).status_code, 401)
+            self.assertEqual(self.request("POST", "/events", json=event).status_code, 401)
+            self.assertEqual(self.request("POST", "/events", json=event,
+                                          headers={"Authorization": "Bearer operator-only"}).status_code, 201)
+
     def test_unexpected_fields_are_rejected(self) -> None:
         response = self.request(
             "POST",

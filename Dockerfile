@@ -11,6 +11,8 @@ RUN python -m pip install --no-cache-dir -r requirements.txt
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY backend ./backend
+COPY collectors ./collectors
+COPY examples ./examples
 
 RUN useradd --create-home --uid 10001 sentinelai \
     && mkdir /data \
