@@ -1,8 +1,13 @@
 # SentinelAI
 
-SentinelAI é um projeto educativo de monitorização de segurança. Nesta primeira
-fase, lê eventos de autenticação fictícios e identifica padrões compatíveis com
-uma possível tentativa de força bruta.
+SentinelAI é uma plataforma educativa de monitorização de segurança que recebe
+eventos de autenticação e identifica padrões compatíveis com uma possível
+tentativa de força bruta.
+
+**Começar:** segue o [guia de demonstração](docs/demo.md) ou as instruções Docker
+abaixo. A [arquitetura](docs/architecture.md) explica o percurso dos dados e a
+[roadmap](docs/roadmap.md) distingue as funcionalidades atuais das que ainda
+faltam antes de produção.
 
 > Um alerta indica atividade suspeita que merece investigação. Não prova que
 > ocorreu um ataque.
@@ -28,6 +33,17 @@ PostgreSQL pode ser selecionado através de `DATABASE_URL`.
 Concluída na Fase 4: dashboard React/TypeScript, visualização dos eventos da
 API, filtros, exportação JSON, detalhe de alertas e assistente ligado ao
 backend. O assistente usa respostas mockadas por omissão; Gemini é opcional.
+
+Fase 5: o backend envia só contagens agregadas e a pergunta do operador; formatos
+comuns de IP, email e credenciais são mascarados antes do pedido Gemini. A redação
+é de melhor esforço e a pergunta continua a ser partilhada com o fornecedor quando
+Gemini está ativo — não incluas dados confidenciais.
+
+Fase 6: testes, validação, token partilhado, auditoria de dependências, CI e Docker
+estão implementados para o protótipo. Ainda não existe autenticação individual,
+rate limiting nem configuração de alojamento de produção. A Fase 7 inclui agora
+arquitetura e guião de demonstração; uma captura de ecrã ainda tem de ser guardada
+em `docs/images/dashboard.png` antes de chamar o pacote de portfólio completo.
 
 Proteção inicial: os endpoints de eventos, alertas e assistente aceitam um
 Bearer token opcional em desenvolvimento e exigem-no em produção. O dashboard
@@ -77,7 +93,8 @@ uma sessão de base de dados gere as operações de cada pedido, e Alembic aplic
 alterações ao esquema através de migrações versionadas. Na Fase 4, o frontend
 consulta a API e apresenta uma amostra fictícia quando a API local não está
 disponível. O assistente pode usar Gemini se for explicitamente ativado no
-backend; envia apenas contagens agregadas, nunca IPs, nomes ou eventos brutos.
+backend; envia contagens agregadas e a pergunta depois de mascarar formatos
+comuns de IP, email e credenciais. Não envia os eventos brutos.
 
 ### Decisões técnicas
 
@@ -125,6 +142,8 @@ data/
 requirements.txt          # dependências necessárias para a API
 alembic.ini               # configuração das migrações
 migrations/               # histórico de alterações às tabelas
+docs/                     # arquitetura, roadmap e guião da demonstração
+scripts/                  # utilitários PowerShell para dados fictícios
 .env.example              # exemplo de configuração sem credenciais reais
 frontend/                 # interface React, TypeScript, Tailwind e Recharts
 .github/workflows/        # testes e verificações em cada push/PR
@@ -207,7 +226,9 @@ Invoke-RestMethod -Method Post `
 
 Os pedidos `POST /events` guardam o evento e qualquer novo alerta detetado na
 base de dados. Uma chave única evita guardar repetidamente a mesma sequência.
-Esta demonstração ainda não tem autenticação e não deve ser exposta publicamente.
+Em desenvolvimento local, o token é opcional. Antes de exposição pública,
+configura `APP_ENV=production` e um `SENTINELAI_API_TOKEN` forte no ambiente do
+servidor; este token partilhado continua a ser apenas uma proteção de demonstração.
 
 ### Endpoints disponíveis
 
@@ -264,7 +285,9 @@ exportar os eventos apresentados para JSON e abrir detalhes de um alerta. Se a
 API não estiver disponível, apresenta uma pequena amostra de dados fictícios e
 identifica-a claramente. O assistente usa respostas de demonstração por
 omissão; pode usar Gemini no backend, enviando ao modelo apenas contagens
-agregadas de eventos e alertas.
+agregadas de eventos e alertas, além da pergunta do operador depois de mascarar
+formatos comuns de IP, email e credenciais. A pergunta pode conter informação que
+o filtro não reconhece: não introduzas dados confidenciais.
 
 Numa janela PowerShell, inicia a API seguindo as instruções acima. Noutra,
 instala as dependências e inicia o dashboard:
@@ -345,9 +368,11 @@ vulnerabilidades.
 Por omissão, `POST /assistant` responde sem chamadas externas. Para ativar o
 provedor, define `ASSISTANT_PROVIDER=gemini`, guarda `GEMINI_API_KEY` como
 variável de ambiente **no backend** e, opcionalmente, escolhe `GEMINI_MODEL`.
-O frontend nunca recebe a chave. O pedido ao provedor contém a pergunta e apenas
-o total de eventos e alertas — não inclui IPs, nomes de utilizador nem registos
-brutos. O modo mock continua disponível sem chave.
+O frontend nunca recebe a chave. O pedido ao provedor contém a pergunta (após
+redação de melhor esforço) e apenas o total de eventos e alertas — não inclui a
+tabela de eventos. O filtro mascara IPs, emails e padrões comuns de credenciais,
+mas não reconhece todo o tipo de informação pessoal; nunca introduzas dados reais
+ou confidenciais. O modo mock continua disponível sem chave.
 
 ```powershell
 $env:ASSISTANT_PROVIDER = "gemini"
@@ -367,6 +392,10 @@ termos do provedor e as regras de privacidade aplicáveis.
   automáticas só detetam vulnerabilidades conhecidas nas dependências.
 - A regra considera apenas falhas por IP, sem contexto adicional.
 - Não existe confirmação automática de ataque nem resposta automática.
+- A API devolve todos os eventos; faltam paginação e limites de volume para
+  datasets grandes.
+- A redação do texto enviado ao Gemini é de melhor esforço, não uma garantia de
+  anonimização. A integração real depende de uma chave configurada pelo operador.
 
 ## Próximos marcos
 
@@ -375,4 +404,15 @@ termos do provedor e as regras de privacidade aplicáveis.
 2. Configurar hospedagem, domínio, base de dados gerida e segredos de produção.
 3. Ligar uma chave Gemini ao ambiente do servidor, se desejado; o modo mock é
    o comportamento padrão e não depende de chave.
+
+Para preencher o dashboard local com a amostra fictícia sem substituir dados já
+existentes, usa o script que verifica primeiro se a base está vazia:
+
+```powershell
+.\scripts\load_demo_data.ps1
+```
+
+O script ignora o registo inválido incluído na amostra para testar o motor da
+Fase 1. Para parar os containers sem apagar a base de dados, executa
+`docker compose down`.
 
