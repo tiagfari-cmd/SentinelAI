@@ -1,7 +1,7 @@
 """Privacy tests for the optional external assistant provider."""
 
-import unittest
 import os
+import unittest
 from unittest.mock import patch
 
 from backend.app.assistant import answer_question, redact_sensitive_text
@@ -60,7 +60,10 @@ class GeminiPayloadTests(unittest.IsolatedAsyncioTestCase):
 
         client = FakeClient()
         with (
-            patch.dict(os.environ, {"ASSISTANT_PROVIDER": "gemini", "GEMINI_API_KEY": "test-key"}),
+            patch.dict(
+                os.environ,
+                {"ASSISTANT_PROVIDER": "gemini", "GEMINI_API_KEY": "test-key"},
+            ),
             patch("backend.app.assistant.httpx.AsyncClient", return_value=client),
         ):
             answer, provider = await answer_question(

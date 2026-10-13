@@ -54,7 +54,10 @@ export function Assistant() {
             <div><strong>Assistente Sentinel</strong><small>IA opcional · redação de melhor esforço</small></div>
             <button className="icon-button" type="button" aria-label="Fechar chat" onClick={() => setOpen(false)}><X size={18} /></button>
           </header>
-          <div className="assistant-disclaimer"><Sparkles size={14} /> Se Gemini estiver ativo, a pergunta é enviada após mascarar IPs, emails e credenciais comuns. Não partilhes dados confidenciais.</div>
+          <div className="assistant-disclaimer">
+            <Sparkles size={14} /> Se Gemini estiver ativo, a pergunta é enviada após
+            mascarar IPs, emails e credenciais comuns. Não partilhes dados confidenciais.
+          </div>
           <div className="assistant-messages" aria-live="polite">
             {messages.map((message, index) => (
               <div className={`chat-message ${message.from}`} key={`${index}-${message.from}`}>
