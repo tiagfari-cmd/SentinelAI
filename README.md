@@ -32,6 +32,10 @@ instruções de instalação gratuita. Consulta o [guia de publicação](docs/pu
 para configuração Cloudflare, validação e limitações. O build preparado não
 significa que já exista uma URL publicada; a API completa continua local.
 
+No PowerShell, se `npm.ps1` ou `npx.ps1` estiverem bloqueados, usa os executáveis
+`npm.cmd` e `npx.cmd` nos comandos abaixo. Não é necessário alterar a política
+de execução do Windows.
+
 ## Estado atual
 
 Concluído na Fase 1:

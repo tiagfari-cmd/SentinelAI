@@ -20,10 +20,10 @@ pedidos HTTP e pode manter logs de acesso segundo as suas políticas.
 Na pasta `frontend`:
 
 ```powershell
-npm ci
-npm test
-npm run build:demo
-npm run preview -- --outDir dist-demo --host 127.0.0.1 --port 4173
+npm.cmd ci
+npm.cmd test
+npm.cmd run build:demo
+npm.cmd run preview -- --outDir dist-demo --host 127.0.0.1 --port 4173
 ```
 
 Verifica os indicadores (8 eventos fictícios, 1 alerta), pesquisa/filtros,
@@ -38,13 +38,17 @@ Para novos projetos, a documentação Cloudflare recomenda Workers. O ficheiro
 Worker, bindings de dados, segredos ou encaminhamento para a API local.
 
 1. Entra na tua conta Cloudflare. Não forneças chaves no chat ou no Git.
+   No PowerShell, executa `npx.cmd wrangler login` na pasta `frontend` e termina
+   o login/autorização no browser. `.cmd` evita depender da política de scripts;
+   não precisas de a desativar. Em Linux/macOS, usa `npx wrangler login`.
 2. Na integração Git, seleciona **apenas** `tiagfari-cmd/SentinelAI`, branch
    `main`. Novas permissões GitHub devem ser aprovadas pelo proprietário.
 3. Define raiz `frontend`, build `npm ci && npm run build:demo` e deploy
    `npx wrangler deploy`. Usa Node 24. Não configures Gemini, token SentinelAI
    ou URL de backend.
 4. Alternativa: com CLI oficial instalada e autenticada, executa
-   `npm run build:demo` e `npx wrangler deploy` na pasta `frontend`.
+   `npm.cmd run build:demo` e `npx.cmd wrangler deploy` no PowerShell, na pasta
+   `frontend` (Linux/macOS: `npm` e `npx` sem `.cmd`).
 5. Usa o subdomínio atribuído. Não compres domínio nem atives recursos pagos
    para este marco. Confirma plano e quotas na tua conta.
 
