@@ -9,6 +9,21 @@ abaixo. A [arquitetura](docs/architecture.md) explica o percurso dos dados e a
 [roadmap](docs/roadmap.md) distingue as funcionalidades atuais das que ainda
 faltam antes de produção.
 
+**Experimentar no browser:** [demo pública gratuita](https://sentinelai-demo.tiagfari.workers.dev/).
+Não exige conta ou instalação; usa dados fictícios e respostas locais, não um LLM.
+Para analisar eventos próprios, executa a instalação completa no teu computador:
+
+```powershell
+git clone https://github.com/tiagfari-cmd/SentinelAI.git
+cd SentinelAI
+docker compose up --build -d
+```
+
+Requer Git e Docker Desktop em execução. Abre `http://localhost:8080`;
+envia os teus eventos através de `http://localhost:8001/docs`. Não há recolha
+automática de logs. A configuração padrão usa SQLite persistente e assistente
+mock, sem chave de API. Não exponhas esta instalação local na Internet.
+
 Consulta também a [política de segurança](SECURITY.md): um repo público permite
 ver e usar o código, mas não concede acesso de escrita ao projeto original.
 
@@ -29,8 +44,9 @@ Existe um build específico para um site público: `npm run build:demo` na pasta
 `frontend`. Usa exclusivamente dados fictícios e um assistente local com
 respostas pré-definidas, sem chamadas ao backend ou ao Gemini. Inclui acesso às
 instruções de instalação gratuita. Consulta o [guia de publicação](docs/public-demo.md)
-para configuração Cloudflare, validação e limitações. O build preparado não
-significa que já exista uma URL publicada; a API completa continua local.
+para configuração Cloudflare, validação e limitações. A demo está publicada
+em [sentinelai-demo.tiagfari.workers.dev](https://sentinelai-demo.tiagfari.workers.dev/);
+a API completa continua local.
 
 No PowerShell, se `npm.ps1` ou `npx.ps1` estiverem bloqueados, usa os executáveis
 `npm.cmd` e `npx.cmd` nos comandos abaixo. Não é necessário alterar a política
@@ -69,7 +85,9 @@ protótipo. Ainda não existe autenticação individual, limitação distribuíd
 configuração de alojamento de produção. A Fase 7 inclui agora
 arquitetura, guião de demonstração e uma
 [captura real do dashboard](docs/images/dashboard.jpg) que mostra a versão
-responsiva com a amostra fictícia. Ainda falta validar um ambiente publicado.
+responsiva com a amostra fictícia. A demo estática foi publicada e validada em
+13 de outubro de 2026, com HTTPS e headers restritivos. Isto não constitui
+validação de um serviço de monitorização multiutilizador em produção.
 
 Proteção inicial: os endpoints de eventos, alertas e assistente aceitam um
 Bearer token opcional em desenvolvimento e exigem-no em produção. O dashboard
