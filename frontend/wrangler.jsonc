@@ -2,7 +2,20 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "sentinelai-demo",
   "compatibility_date": "2026-10-13",
+  "main": "worker/chat.mjs",
+  "vars": {
+    "APP_ORIGIN": "https://sentinelai-demo.tiagfari.workers.dev",
+    "CHAT_ENABLED": "false",
+    "GEMINI_PUBLIC_TERMS_CONFIRMED": "false"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "CHAT_QUOTA", "class_name": "ChatQuota" }]
+  },
+  "migrations": [{ "tag": "chat-quota-v1", "new_sqlite_classes": ["ChatQuota"] }],
+  "observability": { "enabled": false },
   "assets": {
+    "binding": "ASSETS",
+    "run_worker_first": ["/chat", "/chat/*", "/api", "/api/*", "/events", "/events/*", "/alerts", "/alerts/*", "/assistant", "/assistant/*", "/auth", "/auth/*"],
     "directory": "./dist-demo",
     "not_found_handling": "single-page-application"
   }

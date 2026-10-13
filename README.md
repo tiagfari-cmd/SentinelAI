@@ -10,8 +10,15 @@ abaixo. A [arquitetura](docs/architecture.md) explica o percurso dos dados e a
 faltam antes de produção.
 
 **Experimentar no browser:** [demo pública gratuita](https://sentinelai-demo.tiagfari.workers.dev/).
-Não exige conta ou instalação; usa dados fictícios e respostas locais, não um LLM.
-Para analisar eventos próprios, executa a instalação completa no teu computador:
+Não exige conta ou instalação. Podes explorar a amostra fictícia **ou importar
+um ficheiro JSON com os teus próprios eventos para os analisar no browser**.
+O ficheiro não é enviado ao servidor; os dados e as notas ficam apenas na memória
+da página. O [guia de análise local](docs/browser-analysis.md) explica o formato,
+os limites e como exportar o resultado. O assistente gratuito é um guia local,
+com respostas em português ou inglês, não um LLM.
+
+Para receber novos eventos continuamente, executa a instalação completa no teu
+computador e integra a aplicação que queres observar:
 
 ```powershell
 git clone https://github.com/tiagfari-cmd/SentinelAI.git
@@ -41,12 +48,19 @@ o modo mock não necessita de uma chave nem faz chamadas externas.
 ### Demo pública, sem expor a API
 
 Existe um build específico para um site público: `npm run build:demo` na pasta
-`frontend`. Usa exclusivamente dados fictícios e um assistente local com
-respostas pré-definidas, sem chamadas ao backend ou ao Gemini. Inclui acesso às
+`frontend`. Permite explorar dados fictícios ou analisar um ficheiro próprio
+inteiramente no browser, com validação e a mesma regra determinística de cinco
+falhas por IP em 60 segundos. O assistente tem respostas locais pré-definidas,
+sem chamadas ao backend ou ao Gemini na configuração gratuita. Inclui acesso às
 instruções de instalação gratuita. Consulta o [guia de publicação](docs/public-demo.md)
 para configuração Cloudflare, validação e limitações. A demo está publicada
 em [sentinelai-demo.tiagfari.workers.dev](https://sentinelai-demo.tiagfari.workers.dev/);
 a API completa continua local.
+
+Os modos não se confundem: a amostra é fictícia, a importação analisa dados do
+ficheiro sem os guardar no servidor e a instalação privada recebe eventos pela
+API. A página pública **não é monitorização contínua**, não bloqueia acessos e
+não cria uma conta ou um espaço empresarial persistente.
 
 No PowerShell, se `npm.ps1` ou `npx.ps1` estiverem bloqueados, usa os executáveis
 `npm.cmd` e `npx.cmd` nos comandos abaixo. Não é necessário alterar a política
@@ -57,7 +71,17 @@ de execução do Windows.
 Marco de integração web: [coletor de logins no backend](docs/web-integration.md),
 fila local limitada com reenvio, ingestão idempotente e token separado de escrita.
 A aplicação tem de ligar o hook à sua autenticação; não é recolha automática de
-qualquer site nem um lançamento empresarial. A demo Cloudflare não mudou.
+qualquer site nem um lançamento empresarial. O coletor não expõe a API na demo.
+
+Gestão de alertas: [investigar, resolver e reabrir](docs/alert-triage.md), com notas,
+histórico na API e proteção contra alterações concorrentes. O dashboard distingue
+alertas pendentes de resolvidos. Na amostra e na análise de ficheiro, as alterações
+ficam apenas na memória da página; não têm o histórico persistente da API.
+
+Utilidade no link público: [análise de logs próprios no browser](docs/browser-analysis.md),
+com importação JSON limitada a 1 MiB/5000 eventos, validação integral, filtros,
+detalhes dos alertas e exportação. Não substitui uma integração à aplicação nem
+o acompanhamento de novas tentativas de login.
 
 Concluído na Fase 1:
 
@@ -146,6 +170,19 @@ consulta a API e apresenta uma amostra fictícia quando a API local não está
 disponível. O assistente pode usar Gemini se for explicitamente ativado no
 backend; envia contagens agregadas e a pergunta depois de mascarar formatos
 comuns de IP, email e credenciais. Não envia os eventos brutos.
+
+No marco de análise pública, separámos duas necessidades: experimentar a
+interface com uma amostra e obter utilidade de um ficheiro próprio. A leitura,
+validação e deteção do JSON correm no browser, sem publicar a API ou criar
+armazenamento empresarial. Limites explícitos e rejeição integral evitam
+apresentar uma análise parcial como se fosse completa. O estado da investigação
+é identificado como local e deve ser exportado antes de limpar ou sair.
+
+O assistente público mantém o guia gratuito em português/inglês. A preparação
+de um proxy Gemini não é ativação: permanece desativado, sem perguntas enviadas
+ao fornecedor. Os [termos do provedor](https://ai.google.dev/gemini-api/terms)
+e custos precisam de revisão antes de qualquer serviço público com LLM; não
+ativamos faturação apenas para obter respostas geradas.
 
 ### Decisões técnicas
 
@@ -296,6 +333,8 @@ explica o coletor e o token opcional `SENTINELAI_INGEST_TOKEN`, apenas de escrit
 | `GET` | `/events` | Lista uma página de eventos; total no header `X-Total-Count`. |
 | `POST` | `/events` | Valida e guarda um evento; responde com `201 Created`. |
 | `GET` | `/alerts` | Lista uma página de alertas, incluindo a hora da deteção. |
+| `POST` | `/alerts/{id}/review` | Guarda estado/nota com revisão esperada; só operador. |
+| `GET` | `/alerts/{id}/reviews` | Histórico paginado de alterações; só operador. |
 | `POST` | `/assistant` | Responde em modo mock ou, se configurado, via Gemini. |
 
 Um pedido com campos inválidos recebe `422 Unprocessable Entity`, com detalhes
@@ -467,6 +506,11 @@ termos do provedor e as regras de privacidade aplicáveis.
 
 ## Limitações conhecidas
 
+- O link público faz análise pontual de JSON (até 1 MiB/5000 eventos), não recolha
+  de novos logins. Dados, notas e conversa ficam em memória e desaparecem ao
+  limpar/recarregar; as exportações descarregadas ficam no dispositivo.
+- O guia público tem respostas pré-definidas em português/inglês, não um LLM.
+  Gemini público permanece desativado, mesmo que exista uma chave no servidor.
 - O Docker Compose é apenas para execução local; ainda não há configuração de ambiente de produção.
 - A proteção usa um token de operador partilhado; ainda faltam contas individuais,
   limitação distribuída e monitorização adequadas a uma API pública. As auditorias
@@ -485,7 +529,30 @@ termos do provedor e as regras de privacidade aplicáveis.
    de expor a API publicamente.
 2. Configurar hospedagem, domínio, base de dados gerida e segredos de produção.
 3. Ligar uma chave Gemini ao ambiente do servidor, se desejado; o modo mock é
-   o comportamento padrão e não depende de chave.
+   o comportamento padrão e não depende de chave. Revê os termos e custos antes
+   de o disponibilizar publicamente. A opção pública atual é o guia local gratuito.
+
+### Como uma empresa começa
+
+Para uma primeira avaliação, um responsável autorizado exporta os logins da sua
+aplicação para o [contrato JSON](docs/browser-analysis.md), abre o link público,
+analisa o ficheiro e confirma as sequências encontradas com o contexto real.
+Não precisa de conta, chave Gemini ou instalação; precisa de eventos corretos
+e autorização para tratar esses dados. O resultado ajuda a investigar, não é
+uma garantia de proteção.
+
+Para receber novos eventos continuamente, um responsável técnico instala a
+versão completa num ambiente privado, liga o
+[hook de autenticação e coletor](docs/web-integration.md) ao backend da aplicação
+e valida primeiro com dados fictícios. Um servidor remoto exige HTTPS,
+segredos/permissões de rede, retenção, backups e restauro definidos pela empresa.
+O Compose fornecido não instala tudo isso automaticamente. Cada empresa deve
+ter a sua instalação; não uses a demo pública como destino do coletor.
+
+As ideias seguintes — contas/funções, notificações, várias aplicações,
+retenção/restauro, mais regras de login e estudo de LLM local — estão priorizadas
+na [roadmap](docs/roadmap.md#ideias-priorizadas-ainda-não-implementadas), não
+anunciadas como funcionalidades já disponíveis.
 
 Para preencher o dashboard local com a amostra fictícia sem substituir dados já
 existentes, usa o script que verifica primeiro se a base está vazia:

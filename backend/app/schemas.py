@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from ipaddress import IPv4Address, IPv6Address
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .detection import AuthenticationEvent
 
@@ -50,6 +50,11 @@ class SecurityAlertSchema(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    id: int
+    review_status: Literal["open", "investigating", "resolved"]
+    review_note: str
+    review_revision: int
+    reviewed_at: datetime | None
     ip_address: str
     first_failure: datetime
     last_failure: datetime
@@ -64,6 +69,42 @@ class SecurityAlertSchema(BaseModel):
         if value.tzinfo is None or value.utcoffset() is None:
             return value.replace(tzinfo=timezone.utc)
         return value.astimezone(timezone.utc)
+
+    @field_validator("reviewed_at")
+    @classmethod
+    def reviewed_timestamp_is_utc(cls, value: datetime | None) -> datetime | None:
+        return cls.alert_timestamps_are_utc(value) if value else None
+
+
+class AlertReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    review_status: Literal["open", "investigating", "resolved"]
+    review_note: str = Field(max_length=1000)
+    expected_revision: int = Field(ge=0, le=2147483646)
+
+    @field_validator("review_note")
+    @classmethod
+    def normalize_note(cls, value: str) -> str:
+        return value.strip()
+
+    @model_validator(mode="after")
+    def resolution_requires_a_note(self):
+        if self.review_status == "resolved" and not self.review_note:
+            raise ValueError("Resolver um alerta exige uma nota de investigação.")
+        return self
+
+
+class AlertReviewSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    revision: int
+    review_status: Literal["open", "investigating", "resolved"]
+    review_note: str
+    reviewed_at: datetime
+
+    @field_validator("reviewed_at")
+    @classmethod
+    def timestamp_is_utc(cls, value: datetime) -> datetime:
+        return SecurityAlertSchema.alert_timestamps_are_utc(value)
 
 
 class AssistantRequest(BaseModel):
@@ -87,6 +128,7 @@ class AssistantResponse(BaseModel):
     provider: Literal["mock", "gemini"]
 
 
-__all__ = ["AssistantRequest", "AssistantResponse", "AuthenticationEventSchema", "SecurityAlertSchema"]
+__all__ = ["AssistantRequest", "AssistantResponse", "AuthenticationEventSchema", "SecurityAlertSchema",
+           "AlertReviewRequest", "AlertReviewSchema"]
 # End of public API schemas.
 

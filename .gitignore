@@ -231,6 +231,8 @@ node_modules/
 frontend/dist/
 frontend/dist-demo/
 .wrangler/
+.dev.vars
+.dev.vars.*
 .env.*
 !.env.example
 .idea/

@@ -1,13 +1,58 @@
-export function demoReply(prompt: string): string {
-  const question = prompt.toLowerCase()
-  if (question.includes('203.0.113.42') || question.includes('alerta')) {
-    return 'A amostra fictícia mostra cinco falhas do mesmo IP em 36 segundos. Confirma os registos na origem, verifica se a pessoa reconhece a atividade e procura autenticações bem-sucedidas próximas. É um sinal para investigar, não uma confirmação de ataque.'
-  }
-  if (question.includes('passo') || question.includes('investig')) {
-    return 'Sugestão de investigação: (1) validar timestamps e origem dos registos; (2) procurar autenticações bem-sucedidas próximas das falhas; (3) confirmar com a pessoa responsável se reconhece o acesso. Não tomes medidas automáticas só com base num alerta.'
-  }
-  if (question.includes('grat') || question.includes('instal')) {
-    return 'O SentinelAI é gratuito e open-source (MIT). Segue o README no GitHub para executar a versão completa com Docker no teu computador. Esta demo não recebe logs reais nem necessita de uma chave de API.'
-  }
-  return 'Esta é uma resposta local pré-definida, não gerada por um LLM. Podes perguntar sobre os alertas, passos de investigação ou instalação. A demo usa apenas dados fictícios e não envia a tua pergunta a um servidor.'
+type GuideLanguage = 'pt' | 'en'
+type GuideTopic = 'llm' | 'import' | 'dashboard' | 'company' | 'review' | 'export' | 'filter' | 'alert' | 'investigate' | 'free' | 'features' | 'unknown'
+
+const replies: Record<GuideLanguage, Record<GuideTopic, string>> = {
+  pt: {
+    llm: 'Neste site público respondo através de um guia local, não de um LLM. São respostas pré-definidas, disponíveis em português e inglês. A integração pública com Gemini está preparada mas desativada: a opção escolhida mantém este guia gratuito e não ativa faturação. Não precisas de uma chave para usar o guia. Um modelo local no browser é uma ideia para estudar, não uma funcionalidade disponível.',
+    import: 'Podes escolher um ficheiro JSON com os teus eventos para os analisar neste browser. Deve ser uma lista de objetos com timestamp, ip_address, username e outcome (failed ou success), com até 1 MiB e 5000 eventos. A leitura, validação e análise são locais: os logs não são enviados a servidores. Os dados ficam temporariamente na memória deste separador e desaparecem ao recarregar a página ou repor a demonstração. Isto não é monitorização contínua. Para acompanhar uma aplicação continuamente, faz um piloto privado com Docker e liga o coletor ao backend dessa aplicação.',
+    dashboard: 'O dashboard mostra quatro indicadores: tentativas de login, alertas pendentes, logins com sucesso e origens de acesso (IPs). Em Eventos podes pesquisar, filtrar e exportar JSON. Em Alertas podes abrir a evidência, marcar “Em análise” e depois resolver com uma nota. O modo de demonstração é fictício; podes também importar um ficheiro para analisar os teus eventos localmente. As alterações no site público ficam só na memória deste separador. Começa por abrir Alertas ou importar um ficheiro.',
+    company: 'Uma empresa pode experimentar a análise local de um ficheiro JSON neste site, sem enviar os logs a servidores. Para receber eventos continuamente, precisa de um piloto na sua própria instalação: executar o SentinelAI com Docker, ligar o coletor ao backend da aplicação e registar cada resultado de login. Um worker envia os eventos da fila à API privada; os reenvios usam a mesma chave para evitar duplicados. Consulta o guia web no README. A instalação precisa de configuração segura e validação; não é proteção empresarial certificada.',
+    review: 'Abre um alerta, escolhe “Em análise” enquanto investigas e regista uma nota. Quando terminares, escolhe “Resolvido” e explica a conclusão. Resolver não apaga a evidência nem prova que houve um ataque. Usa o filtro “Todos” ou “Resolvidos” para voltar a encontrá-lo. No site público, os estados e as notas só ficam na memória deste separador; recarregar a página ou repor a demonstração limpa essas alterações.',
+    export: 'O botão “Exportar eventos” descarrega um ficheiro JSON com os eventos que correspondem à pesquisa e ao filtro atuais. Não exporta notas de investigação. No site público, podes exportar a amostra ou os eventos que importaste localmente. Na instalação completa, o dashboard carrega até 500 eventos recentes e avisa se a vista for parcial; a exportação não representa necessariamente todo o histórico.',
+    filter: 'Na pesquisa escreve um IP ou utilizador. Em Eventos escolhe todos os resultados, falhas ou sucessos. Em Alertas escolhe pendentes, por tratar, em análise, resolvidos ou todos. Se a lista estiver vazia, limpa a pesquisa e seleciona “Todos”. Os filtros só abrangem os registos carregados, incluindo os eventos de um ficheiro importado localmente.',
+    alert: 'A amostra fictícia mostra cinco falhas do mesmo IP em 36 segundos. A análise local pode assinalar falhas repetidas nos eventos que importares. Confirma os registos na origem, verifica se a pessoa reconhece a atividade e procura autenticações bem-sucedidas próximas. É um sinal para investigar, não uma confirmação de ataque.',
+    investigate: 'Sugestão de investigação: (1) validar timestamps e origem dos registos; (2) procurar autenticações bem-sucedidas próximas das falhas; (3) confirmar com a pessoa responsável se reconhece o acesso. Não tomes medidas automáticas só com base num alerta.',
+    free: 'O SentinelAI é gratuito e open-source (MIT). Neste site podes experimentar a amostra e analisar localmente um ficheiro JSON sem chave de API. Segue o README no GitHub para executar a versão completa com Docker numa instalação privada. O software é gratuito; alojamento ou serviços externos que escolhas podem ter custos próprios.',
+    features: 'O SentinelAI tem eventos, deteção de falhas repetidas, filtros, exportação, investigação de alertas e integração web. O site público permite experimentar a amostra e analisar um ficheiro local. Próximos marcos possíveis: contas individuais, notificações, retenção de dados, backups operacionais, novas regras e estudar um modelo local no browser. Estes próximos marcos são ideias, não funcionalidades já disponíveis.',
+    unknown: 'Posso explicar o dashboard, alertas, filtros, exportação, importação de ficheiros, integração web e instalação. Experimenta “Como funciona o dashboard?” ou “Como importar os meus eventos?”. Sou um guia local com respostas pré-definidas: não interpreto livremente qualquer assunto nem faço uma análise real de segurança.',
+  },
+  en: {
+    llm: 'On this public site I am a local guide, not an LLM. These are predefined answers available in English and Portuguese. The public Gemini integration is prepared but disabled: the selected option keeps this guide free and does not enable billing. You do not need an API key for the guide. A model running locally in the browser is an idea to research, not an available feature.',
+    import: 'You can choose a JSON file containing your login events and analyse it in this browser. It must be an array of objects with timestamp, ip_address, username and outcome (failed or success), limited to 1 MiB and 5000 events. Reading, validation and analysis happen locally: logs are not sent to servers. Data stays temporarily in this tab’s memory and is cleared when you reload the page or reset the demo. This is not continuous monitoring. For continuous monitoring, run a private Docker pilot and connect the collector to your application’s backend.',
+    dashboard: 'The dashboard shows four indicators: login attempts, pending alerts, successful logins and access origins (IPs). In Events you can search, filter and export JSON. In Alerts you can inspect the evidence, mark an alert as “In analysis” and resolve it with a note. Demo mode uses fictional data; you can also import a file to analyse your events locally. Changes on the public site stay only in this tab’s memory. Start by opening Alerts or importing a file.',
+    company: 'A company can try local analysis of a JSON file on this site without sending its logs to servers. Continuous monitoring requires a private pilot: run SentinelAI with Docker, connect the collector to the application’s backend and record each login result. A worker sends queued events to the private API; retries use the same key to avoid duplicates. Read the web integration guide in the README. The installation needs secure configuration and validation; this is not certified enterprise protection.',
+    review: 'Open an alert, select “In analysis” while investigating and write a note. When finished, select “Resolved” and explain your conclusion. Resolving an alert does not delete the evidence or prove that an attack happened. Use the “All” or “Resolved” filter to find it again. On the public site, states and notes stay only in this tab’s memory; reloading the page or resetting the demo clears these changes.',
+    export: '“Export events” downloads a JSON file containing events matching the current search and filter. It does not export investigation notes. On the public site, you can export the sample or events you imported locally. In a full installation, the dashboard loads up to 500 recent events and warns when the view is partial; an export does not necessarily include the complete history.',
+    filter: 'Search for an IP or username. In Events, choose all outcomes, failures or successes. In Alerts, choose pending, open, in analysis, resolved or all alerts. If the list is empty, clear the search and select “All”. Filters apply only to the loaded records, including events from a locally imported file.',
+    alert: 'The fictional sample contains five failures from the same IP within 36 seconds. Local analysis can flag repeated failures in imported events. Check the original records, ask whether the person recognises the activity and look for successful logins nearby. This is a signal to investigate, not confirmation of an attack.',
+    investigate: 'Suggested investigation: (1) validate timestamps and the source of the records; (2) look for successful logins near the failures; (3) ask the responsible person whether they recognise the access. Do not take automatic action based solely on an alert.',
+    free: 'SentinelAI is free and open-source (MIT). You can try the sample and analyse a local JSON file on this site without an API key. Follow the GitHub README to run the full version with Docker in a private installation. The software is free; hosting or external services you choose may have their own costs.',
+    features: 'SentinelAI has events, repeated-failure detection, filters, export, alert investigation and web integration. The public site lets you try the sample and analyse a local file. Possible next milestones include individual accounts, notifications, data retention, operational backups, new rules and researching an in-browser local model. These next milestones are ideas, not features already available.',
+    unknown: 'I can explain the dashboard, alerts, filters, export, file import, web integration and installation. Try “How does the dashboard work?” or “How can I import my events?”. I am a local guide with predefined answers: I do not generate open-ended replies or perform a real security assessment.',
+  },
+}
+
+function topicFor(question: string): GuideTopic {
+  const mentions = (...parts: string[]) => parts.some((part) => question.includes(part))
+  if (mentions('llm', 'gemini', 'inteligencia artificial', 'artificial intelligence', 'chatbot', 'language model')) return 'llm'
+  if (mentions('import', 'ficheiro', 'arquivo', 'upload', 'file', 'real data', 'realdata', 'dados reais', 'logs reais', 'my events', 'meus eventos')) return 'import'
+  if (mentions('dashboard', 'dasboard', 'painel', 'como funciona', 'how does it work', 'how it works', 'how this works', 'how to use')) return 'dashboard'
+  if (mentions('empresa', 'integrar', 'integrat', 'backend', 'proprios', 'company', 'companies', 'business', 'continuous', 'continu')) return 'company'
+  if (mentions('resolver', 'resolvid', 'estado', 'marcar', 'review', 'resolve', 'status', 'in analysis', 'mark')) return 'review'
+  if (mentions('export', 'json')) return 'export'
+  if (mentions('pesquis', 'filtr', 'procur', 'filter', 'search', 'find events')) return 'filter'
+  if (mentions('203.0.113.42', 'alerta', 'alert')) return 'alert'
+  if (mentions('passo', 'investig', 'next step')) return 'investigate'
+  if (mentions('grat', 'instal', 'free', 'docker', 'setup', 'set up', 'open source', 'open-source')) return 'free'
+  if (mentions('feature', 'funcionalidade', 'ideas', 'ideias', 'add')) return 'features'
+  return 'unknown'
+}
+
+/** A deterministic local guide: never a model call or an analysis of user records. */
+export function demoReply(prompt: string, language: GuideLanguage = 'pt'): string {
+  const question = prompt.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+  const disclaimer = language === 'en'
+    ? 'I cannot access your raw event data or investigation notes. An alert does not confirm an attack.'
+    : 'Não tenho acesso aos teus dados brutos nem às notas de investigação. Um alerta não confirma um ataque.'
+  return `${replies[language][topicFor(question)]}\n\n${disclaimer}`
 }

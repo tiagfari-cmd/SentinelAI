@@ -8,20 +8,7 @@ import {
   YAxis,
 } from 'recharts'
 import type { AuthenticationEvent } from './types'
-
-type ActivityPoint = { hour: string; success: number; failed: number }
-
-function buildHourlyActivity(events: AuthenticationEvent[]): ActivityPoint[] {
-  const buckets = new Map<string, ActivityPoint>()
-  for (const event of events) {
-    const date = new Date(event.timestamp)
-    const hour = `${String(date.getHours()).padStart(2, '0')}:00`
-    const point = buckets.get(hour) ?? { hour, success: 0, failed: 0 }
-    point[event.outcome] += 1
-    buckets.set(hour, point)
-  }
-  return [...buckets.values()].sort((a, b) => a.hour.localeCompare(b.hour))
-}
+import { buildHourlyActivity } from './activity'
 
 export default function ActivityChart({ events }: { events: AuthenticationEvent[] }) {
   const points = buildHourlyActivity(events)
@@ -39,13 +26,13 @@ export default function ActivityChart({ events }: { events: AuthenticationEvent[
           </linearGradient>
         </defs>
         <CartesianGrid stroke="#253039" strokeDasharray="3 5" vertical={false} />
-        <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fill: '#829099', fontSize: 11 }} />
+        <XAxis dataKey="hour" tickFormatter={(value: string) => `${value.slice(5, 10)} ${value.slice(11, 16)}`} axisLine={false} tickLine={false} tick={{ fill: '#b4c2c9', fontSize: 11 }} />
         <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#829099', fontSize: 11 }} />
         <Tooltip
           contentStyle={{ background: '#131a1f', border: '1px solid #303b42', borderRadius: 10, color: '#eaf0f2' }}
           labelStyle={{ color: '#aebbc1' }}
           formatter={(value, name) => [value, name === 'success' ? 'Sucesso' : 'Falha']}
-          labelFormatter={(label) => `Hora: ${label}`}
+          labelFormatter={(label) => `Hora UTC: ${label}`}
         />
         <Area type="monotone" dataKey="success" stroke="#51e0b0" strokeWidth={2} fill="url(#successFill)" />
         <Area type="monotone" dataKey="failed" stroke="#ff6878" strokeWidth={2} fill="url(#failureFill)" />
