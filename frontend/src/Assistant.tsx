@@ -2,23 +2,14 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Bot, MessageCircle, Send, ShieldAlert, Sparkles, X } from 'lucide-react'
 import { askAssistant } from './api'
+import { isPublicDemo } from './deployment'
+import { demoReply } from './demo-assistant'
 
 type Message = { from: 'assistant' | 'user'; text: string; provider?: 'mock' | 'gemini' | 'local' | 'error' }
 
 const welcome: Message = {
   from: 'assistant',
   text: 'Olá! Posso ajudar-te a interpretar os indicadores agregados e sugerir próximos passos de investigação.',
-}
-
-function mockReply(prompt: string): string {
-  const question = prompt.toLowerCase()
-  if (question.includes('203.0.113.42') || question.includes('alerta')) {
-    return 'Os dados fictícios mostram cinco falhas associadas ao mesmo IP num intervalo curto. Confirma os registos de autenticação na origem, verifica se a utilizadora reconhece a atividade e procura eventos relacionados. É um sinal para investigar, não uma confirmação de ataque.'
-  }
-  if (question.includes('passo') || question.includes('investig')) {
-    return 'Sugestão de investigação: (1) validar os timestamps e a origem dos registos; (2) procurar autenticações bem-sucedidas próximas das falhas; (3) confirmar com a pessoa responsável se reconhece o acesso. Não tomes medidas automáticas só com base neste alerta.'
-  }
-  return 'Este protótipo só consegue responder com exemplos pré-definidos sobre os dados fictícios apresentados. Quando configurarmos um LLM no backend, poderá resumir evidências reais — sempre separando factos observados de hipóteses.'
 }
 
 export function Assistant() {
@@ -39,7 +30,7 @@ export function Assistant() {
       setMessages((current) => [...current, { from: 'assistant', text: reply.answer, provider: reply.provider }])
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'Erro desconhecido ao contactar o backend.'
-      setMessages((current) => [...current, { from: 'assistant', text: `Não consegui ligar ao Gemini: ${detail}\n\nResposta de demonstração: ${mockReply(text)}`, provider: 'error' }])
+      setMessages((current) => [...current, { from: 'assistant', text: `Não consegui contactar o assistente: ${detail}\n\nResposta de demonstração: ${demoReply(text)}`, provider: 'error' }])
     } finally {
       setSending(false)
     }
@@ -51,12 +42,11 @@ export function Assistant() {
         <section className="assistant-panel" aria-label="Chat de demonstração">
           <header className="assistant-header">
             <span className="assistant-icon"><Bot size={18} /></span>
-            <div><strong>Assistente Sentinel</strong><small>IA opcional · redação de melhor esforço</small></div>
+            <div><strong>Assistente Sentinel</strong><small>{isPublicDemo ? 'Respostas locais · sem LLM' : 'IA opcional · redação de melhor esforço'}</small></div>
             <button className="icon-button" type="button" aria-label="Fechar chat" onClick={() => setOpen(false)}><X size={18} /></button>
           </header>
           <div className="assistant-disclaimer">
-            <Sparkles size={14} /> Se Gemini estiver ativo, a pergunta é enviada após
-            mascarar IPs, emails e credenciais comuns. Não partilhes dados confidenciais.
+            <Sparkles size={14} /><span>{isPublicDemo ? 'As perguntas ficam na memória deste separador. Não são enviadas a um servidor. Respostas pré-definidas; não partilhes dados confidenciais.' : 'Se Gemini estiver ativo, a pergunta é enviada após mascarar IPs, emails e credenciais comuns. Não partilhes dados confidenciais.'}</span>
           </div>
           <div className="assistant-messages" aria-live="polite">
             {messages.map((message, index) => (
@@ -73,7 +63,7 @@ export function Assistant() {
           </div>
           <form className="assistant-form" onSubmit={send}>
             <label className="sr-only" htmlFor="assistant-input">Mensagem para o assistente</label>
-            <input id="assistant-input" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Pergunta sobre os indicadores…" disabled={sending} />
+            <input id="assistant-input" value={input} onChange={(event) => setInput(event.target.value)} maxLength={1000} placeholder="Pergunta sobre os indicadores…" disabled={sending} />
             <button className="send-button" type="submit" aria-label="Enviar mensagem" disabled={!input.trim() || sending}><Send size={16} /></button>
           </form>
         </section>
