@@ -16,7 +16,7 @@ class AuthenticationEventSchema(BaseModel):
 
     timestamp: datetime
     ip_address: IPv4Address | IPv6Address
-    username: str = Field(min_length=1)
+    username: str = Field(min_length=1, max_length=255)
     outcome: Literal["failed", "success"]
 
     @field_validator("timestamp")

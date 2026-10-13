@@ -15,8 +15,9 @@
   backend. Os pedidos externos recebem a pergunta com redação de melhor esforço
   e contagens agregadas; não recebem eventos brutos.
 - **Fase 6 — Qualidade básica:** validação de entrada, token partilhado,
+  paginação, corpos limitados a 8 KiB, orçamentos globais de pedidos por processo,
   testes, auditoria de dependências no CI, Compose, headers HTTP básicos e
-  documentação de segurança.
+  documentação de segurança. O dashboard identifica vistas parciais e erros HTTP.
 - **Fase 7 — Materiais de portfólio:** instruções locais e Docker, arquitetura,
   guião de demonstração, limitações e processo de desenvolvimento.
 
@@ -24,8 +25,9 @@
 
 1. Substituir o token partilhado por autenticação individual e autorização com
    sessões seguras.
-2. Implementar rate limiting, paginação e limites explícitos para respostas da
-   API; testar carga e concorrência.
+2. Substituir os limites por processo por limitação partilhada no ponto de entrada
+   e por utilizador; limitar armazenamento/retenção e custo de ingestão; testar
+   carga e concorrência com a base de dados e múltiplos processos.
 3. Configurar logs operacionais sem registar tokens ou dados sensíveis e definir
    métricas, retenção, cópias de segurança e alertas de serviço.
 4. Escolher alojamento para API, frontend e PostgreSQL; restringir CORS, TLS,

@@ -15,6 +15,14 @@ ver e usar o código, mas não concede acesso de escrita ao projeto original.
 > Um alerta indica atividade suspeita que merece investigação. Não prova que
 > ocorreu um ataque.
 
+## Gratuito e open-source
+
+O código está disponível sob a licença MIT para estudar, usar e executar no teu
+computador. Esta versão não inclui pagamentos, subscrições ou funcionalidades
+premium. Uma eventual versão SaaS será uma decisão futura, não um requisito para
+usar este projeto. Hospedagem e provedores LLM podem ter custos ou quotas próprios;
+o modo mock não necessita de uma chave nem faz chamadas externas.
+
 ## Estado atual
 
 Concluído na Fase 1:
@@ -42,11 +50,13 @@ comuns de IP, email e credenciais são mascarados antes do pedido Gemini. A reda
 é de melhor esforço e a pergunta continua a ser partilhada com o fornecedor quando
 Gemini está ativo — não incluas dados confidenciais.
 
-Fase 6: testes, validação, token partilhado, auditoria de dependências, CI e Docker
-estão implementados para o protótipo. Ainda não existe autenticação individual,
-rate limiting nem configuração de alojamento de produção. A Fase 7 inclui agora
-arquitetura e guião de demonstração; uma captura de ecrã ainda tem de ser guardada
-em `docs/images/dashboard.png` antes de chamar o pacote de portfólio completo.
+Fase 6: testes, validação, token partilhado, limites básicos de tráfego e de tamanho,
+paginação, auditoria de dependências, CI e Docker estão implementados para o
+protótipo. Ainda não existe autenticação individual, limitação distribuída nem
+configuração de alojamento de produção. A Fase 7 inclui agora
+arquitetura, guião de demonstração e uma
+[captura real do dashboard](docs/images/dashboard.jpg) que mostra a versão
+responsiva com a amostra fictícia. Ainda falta validar um ambiente publicado.
 
 Proteção inicial: os endpoints de eventos, alertas e assistente aceitam um
 Bearer token opcional em desenvolvimento e exigem-no em produção. O dashboard
@@ -239,13 +249,37 @@ servidor; este token partilhado continua a ser apenas uma proteção de demonstr
 | --- | --- | --- |
 | `GET` | `/health` | Confirma que a API responde. |
 | `GET` | `/auth/check` | Valida o token de acesso ao dashboard. |
-| `GET` | `/events` | Lista os eventos recebidos, por ordem cronológica. |
+| `GET` | `/events` | Lista uma página de eventos; total no header `X-Total-Count`. |
 | `POST` | `/events` | Valida e guarda um evento; responde com `201 Created`. |
-| `GET` | `/alerts` | Lista alertas persistidos, incluindo a hora da deteção. |
+| `GET` | `/alerts` | Lista uma página de alertas, incluindo a hora da deteção. |
 | `POST` | `/assistant` | Responde em modo mock ou, se configurado, via Gemini. |
 
 Um pedido com campos inválidos recebe `422 Unprocessable Entity`, com detalhes
 sobre os campos que falharam a validação.
+
+### Paginação e limites básicos
+
+`GET /events` e `GET /alerts` aceitam `limit` (1–500, omissão 100), `offset`
+(0–100000) e `order` (`asc` por omissão ou `desc`). Exemplo:
+`GET /events?limit=50&offset=50&order=desc`. O header `X-Total-Count` indica o
+total de registos. O dashboard carrega no máximo 500 eventos e 500 alertas mais
+recentes; avisa quando a vista é parcial. Indicadores, filtros e exportação
+referem-se aos registos carregados, não a todo o histórico.
+
+Pedidos HTTP têm um limite de corpo de 8192 bytes, verificado também para envios
+em partes sem `Content-Length`; excessos recebem `413`. O nome de utilizador tem
+no máximo 255 caracteres. Por janela móvel de 60 segundos, todos os operadores
+partilham os seguintes limites por processo: 300 pedidos no total, 120 leituras,
+60 escritas, 20 verificações de acesso e 10 pedidos ao assistente. Pedidos
+recusados recebem `429` e `Retry-After`; `/health` e preflights CORS não consomem
+o orçamento. Pedidos inválidos e tentativas de autenticação também contam.
+
+Estes limites são de demonstração, não proteção contra DDoS: reiniciam com o
+processo e não são partilhados por múltiplos workers/réplicas. Um utilizador pode
+esgotar temporariamente o orçamento de outros. Antes de publicação, configura
+limitação partilhada no ponto de entrada, limites por utilizador autenticado,
+timeouts e restrições de rede. Headers enviados pelo cliente não alteram os
+orçamentos da aplicação.
 
 ## Formato dos eventos
 
@@ -391,18 +425,19 @@ termos do provedor e as regras de privacidade aplicáveis.
 
 - O Docker Compose é apenas para execução local; ainda não há configuração de ambiente de produção.
 - A proteção usa um token de operador partilhado; ainda faltam contas individuais,
-  limitação de pedidos e monitorização adequadas a uma API pública. As auditorias
+  limitação distribuída e monitorização adequadas a uma API pública. As auditorias
   automáticas só detetam vulnerabilidades conhecidas nas dependências.
 - A regra considera apenas falhas por IP, sem contexto adicional.
 - Não existe confirmação automática de ataque nem resposta automática.
-- A API devolve todos os eventos; faltam paginação e limites de volume para
-  datasets grandes.
+- A API pagina respostas, mas ainda não limita o total de eventos guardados.
+  A ingestão recalcula a deteção sobre o histórico; faltam retenção, ingestão
+  incremental e testes de carga para datasets grandes.
 - A redação do texto enviado ao Gemini é de melhor esforço, não uma garantia de
   anonimização. A integração real depende de uma chave configurada pelo operador.
 
 ## Próximos marcos
 
-1. Acrescentar autenticação individual, limites de pedidos e monitorização antes
+1. Acrescentar autenticação individual, limites distribuídos e monitorização antes
    de expor a API publicamente.
 2. Configurar hospedagem, domínio, base de dados gerida e segredos de produção.
 3. Ligar uma chave Gemini ao ambiente do servidor, se desejado; o modo mock é

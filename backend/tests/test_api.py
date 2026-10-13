@@ -2,6 +2,7 @@
 
 import asyncio
 import unittest
+from datetime import datetime
 from unittest.mock import patch
 
 import httpx
@@ -15,6 +16,7 @@ from sqlalchemy import create_engine
 
 class ApiTests(unittest.TestCase):
     def setUp(self) -> None:
+        app.state.traffic_limiter.reset()
         # Uma base SQLite em memória, partilhada pelos pedidos deste teste.
         self.test_engine = create_engine(
             "sqlite://",
@@ -52,6 +54,82 @@ class ApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_lists_support_bounded_pagination_and_total_counts(self) -> None:
+        from sqlalchemy.orm import Session
+
+        with Session(self.test_engine) as session:
+            for index in range(105):
+                session.add(AuthenticationEventModel(
+                    timestamp=datetime(2026, 10, 12),
+                    ip_address="203.0.113.42", username=f"user-{index}", outcome="success",
+                ))
+            session.commit()
+        first = self.request("GET", "/events")
+        page = self.request("GET", "/events?limit=2&offset=1&order=desc")
+        self.assertEqual(len(first.json()), 100)
+        self.assertEqual(first.headers["x-total-count"], "105")
+        self.assertEqual([row["username"] for row in page.json()], ["user-103", "user-102"])
+        self.assertEqual(self.request("GET", "/events?offset=105").json(), [])
+        self.assertEqual(self.request("GET", "/alerts").headers["x-total-count"], "0")
+
+    def test_pagination_rejects_out_of_bounds_and_bad_order(self) -> None:
+        for path in ("/events", "/alerts"):
+            for query in ("limit=0", "limit=501", "offset=-1", "offset=100001", "order=random"):
+                with self.subTest(path=path, query=query):
+                    self.assertEqual(self.request("GET", f"{path}?{query}").status_code, 422)
+
+    def test_username_length_matches_database_bound(self) -> None:
+        event = {"timestamp": "2026-10-12T09:00:00Z", "ip_address": "203.0.113.42",
+                 "username": "a" * 256, "outcome": "failed"}
+        self.assertEqual(self.request("POST", "/events", json=event).status_code, 422)
+        self.assertEqual(self.request("GET", "/events").json(), [])
+
+    def test_api_rate_limit_preserves_cors_and_health(self) -> None:
+        with patch.dict(app.state.traffic_limiter.budgets, {"read": 1}):
+            self.assertEqual(self.request("GET", "/events").status_code, 200)
+            limited = self.request("GET", "/events", headers={"Origin": "http://localhost:5173"})
+            health = self.request("GET", "/health")
+        self.assertEqual(limited.status_code, 429)
+        self.assertGreater(int(limited.headers["retry-after"]), 0)
+        self.assertEqual(limited.headers["access-control-allow-origin"], "http://localhost:5173")
+        self.assertEqual(health.status_code, 200)
+
+    def test_spoofed_forwarded_headers_do_not_bypass_auth_budget(self) -> None:
+        with patch.dict(app.state.traffic_limiter.budgets, {"auth": 1}):
+            self.request("GET", "/auth/check", headers={"X-Forwarded-For": "203.0.113.1"})
+            response = self.request("GET", "/auth/check", headers={"X-Forwarded-For": "203.0.113.2"})
+        self.assertEqual(response.status_code, 429)
+
+    def test_excess_assistant_requests_do_not_call_provider(self) -> None:
+        from unittest.mock import AsyncMock
+        provider = AsyncMock(return_value=("Resposta", "mock"))
+        with patch.dict(app.state.traffic_limiter.budgets, {"assistant": 1}), patch(
+            "backend.app.api.answer_question", provider,
+        ):
+            first = self.request("POST", "/assistant", json={"message": "Olá"})
+            second = self.request("POST", "/assistant", json={"message": "Olá"})
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
+        provider.assert_awaited_once()
+
+    def test_oversized_body_is_rejected_before_endpoint(self) -> None:
+        response = self.request("POST", "/events", content=b"x" * 8193)
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(self.request("GET", "/events").json(), [])
+
+    def test_non_ascii_wrong_token_is_unauthorized_not_server_error(self) -> None:
+        with patch.dict("os.environ", {"SENTINELAI_API_TOKEN": "test-token"}):
+            response = self.request("GET", "/events", headers=[(b"Authorization", b"Bearer \xff")])
+        self.assertEqual(response.status_code, 401)
+
+    def test_all_protected_routes_reject_missing_token(self) -> None:
+        with patch.dict("os.environ", {"SENTINELAI_API_TOKEN": "test-token"}):
+            for method, path in (("GET", "/events"), ("POST", "/events"), ("GET", "/alerts"),
+                                 ("POST", "/assistant"), ("GET", "/auth/check")):
+                with self.subTest(method=method, path=path):
+                    response = self.request(method, path, json={}) if method == "POST" else self.request(method, path)
+                    self.assertEqual(response.status_code, 401)
 
     def test_protected_endpoints_require_configured_token(self) -> None:
         with patch.dict("os.environ", {"APP_ENV": "development", "SENTINELAI_API_TOKEN": "sentinel-test-token"}):

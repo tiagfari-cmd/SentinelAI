@@ -11,6 +11,13 @@ export class UnauthorizedError extends Error {
   }
 }
 
+export class ApiResponseError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ApiResponseError'
+  }
+}
+
 export function setAccessToken(token: string) {
   accessToken = token
 }
@@ -22,7 +29,7 @@ function headers(extra: Record<string, string> = {}): Record<string, string> {
   }
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
+async function fetchPage<T>(path: string): Promise<{ rows: T[]; total: number }> {
   const response = await fetch(`${apiBase}${path}`, {
     headers: headers({ Accept: 'application/json' }),
     signal: AbortSignal.timeout(5000),
@@ -30,9 +37,12 @@ async function fetchJson<T>(path: string): Promise<T> {
   if (response.status === 401) throw new UnauthorizedError()
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null) as { detail?: string } | null
-    throw new Error(errorBody?.detail || `API respondeu com HTTP ${response.status}`)
+    throw new ApiResponseError(errorBody?.detail || `API respondeu com HTTP ${response.status}`)
   }
-  return response.json() as Promise<T>
+  const rows = await response.json() as T[]
+  const totalHeader = response.headers.get('X-Total-Count')
+  const parsedTotal = totalHeader === null ? rows.length : Number(totalHeader)
+  return { rows, total: Number.isFinite(parsedTotal) ? Math.max(rows.length, parsedTotal) : rows.length }
 }
 
 export async function askAssistant(message: string): Promise<{ answer: string; provider: 'mock' | 'gemini' }> {
@@ -62,12 +72,12 @@ export async function verifyAccessToken(token: string): Promise<void> {
 export async function loadDashboardData(): Promise<DashboardData> {
   try {
     const [events, alerts] = await Promise.all([
-      fetchJson<AuthenticationEvent[]>('/events'),
-      fetchJson<SecurityAlert[]>('/alerts'),
+      fetchPage<AuthenticationEvent>('/events?limit=500&order=desc'),
+      fetchPage<SecurityAlert>('/alerts?limit=500&order=desc'),
     ])
-    return { events, alerts, source: 'api' }
+    return { events: events.rows, alerts: alerts.rows, eventTotal: events.total, alertTotal: alerts.total, source: 'api' }
   } catch (error) {
-    if (error instanceof UnauthorizedError) throw error
+    if (error instanceof UnauthorizedError || error instanceof ApiResponseError) throw error
     // A demonstração continua visível se a API local ainda não estiver iniciada.
     return { ...demoData, source: 'demo' }
   }

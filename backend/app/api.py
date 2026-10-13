@@ -2,9 +2,10 @@
 
 import os
 import hmac
+from typing import Literal
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -12,7 +13,10 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .assistant import GeminiRequestError, answer_question
 from .detection import AuthenticationEvent
+from .limits import ApiLimitsMiddleware, TrafficLimiter
 from .repositories import (
+    count_alerts,
+    count_events,
     event_from_model,
     list_alerts,
     list_events,
@@ -29,7 +33,7 @@ from .schemas import (
 app = FastAPI(
     title="SentinelAI API",
     description="API educativa para eventos e alertas de autenticação suspeita.",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -50,7 +54,7 @@ def require_api_access(
             )
         return
     supplied = credentials.credentials if credentials else ""
-    if not supplied or not hmac.compare_digest(supplied, expected):
+    if not supplied or not hmac.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8")):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token de acesso inválido ou em falta.",
@@ -63,11 +67,15 @@ if allowed_origins:
 else:
     cors_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+app.state.traffic_limiter = TrafficLimiter()
+app.add_middleware(ApiLimitsMiddleware, limiter=app.state.traffic_limiter)
+# CORS wraps the limits so browsers can read 413/429 responses too.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_methods=["GET", "POST"],
     allow_headers=["Accept", "Authorization", "Content-Type"],
+    expose_headers=["X-Total-Count", "Retry-After"],
 )
 
 @app.get("/health")
@@ -86,12 +94,19 @@ def check_api_access() -> dict[str, str]:
 
 @app.get("/events", response_model=list[AuthenticationEventSchema])
 def get_events(
+    response: Response,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, le=100000),
+    order: Literal["asc", "desc"] = "asc",
     session: Session = Depends(get_db),
     _access: None = Depends(require_api_access),
 ) -> list[AuthenticationEvent]:
-    """Devolve os eventos guardados, por ordem cronológica."""
+    """Devolve uma página; X-Total-Count indica o total na base de dados."""
 
-    return [event_from_model(row) for row in list_events(session)]
+    response.headers["X-Total-Count"] = str(count_events(session))
+    return [event_from_model(row) for row in list_events(
+        session, limit=limit, offset=offset, descending=order == "desc",
+    )]
 
 
 @app.post(
@@ -113,12 +128,19 @@ def create_event(
 
 @app.get("/alerts", response_model=list[SecurityAlertSchema])
 def get_alerts(
+    response: Response,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, le=100000),
+    order: Literal["asc", "desc"] = "asc",
     session: Session = Depends(get_db),
     _access: None = Depends(require_api_access),
 ) -> list[SecurityAlertSchema]:
     """Devolve os alertas persistidos, incluindo quando foram detetados."""
 
-    return [SecurityAlertSchema.model_validate(row) for row in list_alerts(session)]
+    response.headers["X-Total-Count"] = str(count_alerts(session))
+    return [SecurityAlertSchema.model_validate(row) for row in list_alerts(
+        session, limit=limit, offset=offset, descending=order == "desc",
+    )]
 
 
 @app.post("/assistant", response_model=AssistantResponse)
@@ -132,8 +154,8 @@ async def ask_assistant(
     try:
         answer, provider = await answer_question(
             request.message,
-            event_count=len(list_events(session)),
-            alert_count=len(list_alerts(session)),
+            event_count=count_events(session),
+            alert_count=count_alerts(session),
         )
     except GeminiRequestError as exc:
         raise HTTPException(

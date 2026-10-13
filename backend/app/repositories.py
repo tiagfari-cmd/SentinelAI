@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from hashlib import sha256
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .detection import AuthenticationEvent, SecurityAlert, detect_failed_login_bursts
@@ -27,12 +27,24 @@ def event_from_model(row: AuthenticationEventModel) -> AuthenticationEvent:
     )
 
 
-def list_events(session: Session) -> list[AuthenticationEventModel]:
+def list_events(
+    session: Session, *, limit: int | None = None, offset: int = 0, descending: bool = False,
+) -> list[AuthenticationEventModel]:
+    columns = (AuthenticationEventModel.timestamp, AuthenticationEventModel.id)
     statement = select(AuthenticationEventModel).order_by(
-        AuthenticationEventModel.timestamp,
-        AuthenticationEventModel.id,
-    )
+        *(column.desc() if descending else column.asc() for column in columns)
+    ).offset(offset)
+    if limit is not None:
+        statement = statement.limit(limit)
     return list(session.scalars(statement))
+
+
+def count_events(session: Session) -> int:
+    return session.scalar(select(func.count()).select_from(AuthenticationEventModel)) or 0
+
+
+def count_alerts(session: Session) -> int:
+    return session.scalar(select(func.count()).select_from(SecurityAlertModel)) or 0
 
 
 def save_event_and_new_alerts(
@@ -92,10 +104,14 @@ def alert_fingerprint(alert: SecurityAlert) -> str:
     return sha256(raw.encode("utf-8")).hexdigest()
 
 
-def list_alerts(session: Session) -> list[SecurityAlertModel]:
+def list_alerts(
+    session: Session, *, limit: int | None = None, offset: int = 0, descending: bool = False,
+) -> list[SecurityAlertModel]:
+    columns = (SecurityAlertModel.last_failure, SecurityAlertModel.id)
     statement = select(SecurityAlertModel).order_by(
-        SecurityAlertModel.last_failure,
-        SecurityAlertModel.id,
-    )
+        *(column.desc() if descending else column.asc() for column in columns)
+    ).offset(offset)
+    if limit is not None:
+        statement = statement.limit(limit)
     return list(session.scalars(statement))
 
